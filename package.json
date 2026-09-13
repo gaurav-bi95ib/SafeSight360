@@ -1,0 +1,10 @@
+{
+  "name": "safesight360",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "check:js": "node --check public/assets/js/app.js && node --check public/assets/js/modules.js && node --check public/assets/js/scoring.js && node --check public/assets/js/sanitize.js && node --check public/assets/js/vr-adapter.js && node --check public/assets/js/gamification.js && node --check public/assets/js/five-whys-engine.js && node --check public/assets/js/cyber-engine.js"
+  }
+}

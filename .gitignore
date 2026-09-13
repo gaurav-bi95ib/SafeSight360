@@ -1,0 +1,13 @@
+.env
+.idea/
+.vscode/
+coverage/
+*.log
+.qa_*/
+marzipano-*.tgz
+*.zip
+GITHUB_CONTRIBUTION_PLAN.md
+IMPLEMENTATION_PLAN.md
+~$*.docx
+Thumbs.db
+.DS_Store
