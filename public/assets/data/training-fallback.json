@@ -1,0 +1,86 @@
+{
+  "scenario": {
+    "id": 1,
+    "slug": "warehouse-hazard-hunt",
+    "version": "1.0.0",
+    "title": "Warehouse Hazard Hunt",
+    "summary": "A focused 360-degree hazard-perception activity for an automotive logistics warehouse.",
+    "mission": "Inspect the warehouse carefully and identify all 8 health and safety hazards before the 2-minute timer ends. Select only genuine hazards: correct findings earn points and incorrect selections reduce the challenge score.",
+    "durationSeconds": 120,
+    "maxHazards": 8,
+    "correctPoints": 100,
+    "wrongPenalty": 20,
+    "scoringFormulaVersion": "scoring-v1",
+    "moduleType": "panorama",
+    "panoramaUrl": "/assets/panorama/warehouse-360-v3.png",
+    "panoramaWidth": 1774,
+    "cameraProfile": "warehouse-wide-v3",
+    "initialView": { "yaw": -1.2, "pitch": -0.02, "fov": 2.042035 },
+    "maxFov": 2.181662,
+    "rollbackPanoramaUrl": "/assets/panorama/warehouse-360-v2.png",
+    "rollbackCameraProfile": "warehouse-standard-v2",
+    "rollbackInitialView": { "yaw": -1.2, "pitch": -0.02, "fov": 1.570796 }
+  },
+  "hazards": [
+    { "id": 1, "code": "H1", "title": "Forklift and pedestrian conflict", "topic": "Hazard Perception", "yaw": -2.22, "pitch": -0.13, "hotspotSize": 58, "feedback": "Correct +100. A pedestrian is too close to the forklift operating area. The safer arrangement is to keep pedestrians within designated routes and maintain separation from moving vehicles.", "reviewText": "Vehicle and pedestrian routes should be separated, clearly marked, and followed." },
+    { "id": 2, "code": "H2", "title": "Liquid spill on floor", "topic": "Hazard Perception / Housekeeping", "yaw": -1.37, "pitch": -0.41, "hotspotSize": 54, "feedback": "Correct +100. The liquid spill creates a slip hazard. The area should be made safe, reported and cleaned in line with site procedure.", "reviewText": "Isolate and report spills, then use the approved safe cleaning procedure." },
+    { "id": 3, "code": "H3", "title": "Incorrect manual lifting", "topic": "Manual Handling", "yaw": -0.38, "pitch": -0.13, "hotspotSize": 58, "feedback": "Correct +100. The lifting posture and load handling are unsafe. The worker should assess the load and use the client-approved safe handling method or suitable assistance/equipment.", "reviewText": "Assess the load before lifting and use an approved technique, assistance, or handling equipment." },
+    { "id": 4, "code": "H4", "title": "Missing required PPE", "topic": "Unsafe Acts", "yaw": 0.49, "pitch": 0.05, "hotspotSize": 54, "feedback": "Correct +100. The worker is not using the required protective equipment for the illustrated work area. Exact PPE must follow the client's site rules.", "reviewText": "Use the PPE required by the client's confirmed task and area rules." },
+    { "id": 5, "code": "H5", "title": "Blocked emergency exit", "topic": "Hazard Perception", "yaw": 1.24, "pitch": 0.08, "hotspotSize": 58, "feedback": "Correct +100. Stored materials are obstructing an emergency escape route. Emergency routes should remain clear and accessible.", "reviewText": "Never store materials where they obstruct an emergency exit or escape route." },
+    { "id": 6, "code": "H6", "title": "Unsafe ladder / work at height", "topic": "Working at Height", "yaw": 1.87, "pitch": 0.47, "hotspotSize": 58, "feedback": "Correct +100. The ladder/work-at-height setup is unsafe. Working at height should use suitable equipment and follow the client's approved procedure.", "reviewText": "Use suitable work-at-height equipment and the client's approved procedure." },
+    { "id": 7, "code": "H7", "title": "Unstable pallet / stacked load", "topic": "Unsafe Acts / Storage", "yaw": 2.50, "pitch": 0.19, "hotspotSize": 58, "feedback": "Correct +100. The stacked load appears unstable and could fall. Loads should be stored securely and within the site's safe storage rules.", "reviewText": "Stack and secure loads so they remain stable and within safe storage limits." },
+    { "id": 8, "code": "H8", "title": "Obstructed pedestrian walkway", "topic": "Hazard Perception", "yaw": 1.92, "pitch": -0.69, "hotspotSize": 54, "feedback": "Correct +100. The pedestrian walkway is obstructed. Keeping designated routes clear reduces trip risk and keeps people away from operational traffic.", "reviewText": "Keep designated pedestrian routes clear of boxes, tools, and other materials." }
+  ],
+  "questions": [
+    {
+      "id": 1, "code": "Q1", "prompt": "What is the safest principle when pedestrians and forklifts operate in the same warehouse?", "correctOptionId": 101,
+      "explanation": "Pedestrians and moving vehicles should use separated, clearly marked routes wherever reasonably practicable.",
+      "options": [
+        { "id": 101, "label": "Keep pedestrians in designated routes separated from vehicle movement." },
+        { "id": 102, "label": "Let pedestrians choose the shortest route through vehicle areas." },
+        { "id": 103, "label": "Rely only on the forklift horn." },
+        { "id": 104, "label": "Allow close passing when the forklift is moving slowly." }
+      ]
+    },
+    {
+      "id": 2, "code": "Q2", "prompt": "What should happen first when a liquid spill is found in a busy walkway?", "correctOptionId": 202,
+      "explanation": "The immediate priority is to prevent exposure to the slip risk, then report and clean it using the site procedure.",
+      "options": [
+        { "id": 201, "label": "Walk around it and leave it for the next shift." },
+        { "id": 202, "label": "Make the area safe, report it, and follow the approved cleaning procedure." },
+        { "id": 203, "label": "Cover it with cardboard." },
+        { "id": 204, "label": "Ignore it if it is a small spill." }
+      ]
+    },
+    {
+      "id": 3, "code": "Q3", "prompt": "Before lifting a heavy component box manually, what should a worker do?", "correctOptionId": 303,
+      "explanation": "The load and route should be assessed first so the worker can choose a safe method, assistance, or handling equipment.",
+      "options": [
+        { "id": 301, "label": "Lift immediately before the route becomes busy." },
+        { "id": 302, "label": "Twist while lifting to save time." },
+        { "id": 303, "label": "Assess the load and use a safe method, help, or suitable equipment." },
+        { "id": 304, "label": "Test the weight by jerking the box upward." }
+      ]
+    },
+    {
+      "id": 4, "code": "Q4", "prompt": "Which statement about emergency exits is correct?", "correctOptionId": 403,
+      "explanation": "Emergency exits and their access routes must remain clear and available.",
+      "options": [
+        { "id": 401, "label": "They may be used for temporary storage during a busy period." },
+        { "id": 402, "label": "They only need to be clear during an evacuation drill." },
+        { "id": 403, "label": "They must remain clear and accessible." },
+        { "id": 404, "label": "Small boxes may be placed there if they are visible." }
+      ]
+    },
+    {
+      "id": 5, "code": "Q5", "prompt": "What is the safest response to an unstable stacked pallet?", "correctOptionId": 502,
+      "explanation": "The area should be kept safe and the load corrected using the approved storage and handling procedure.",
+      "options": [
+        { "id": 501, "label": "Climb the stack and push the load into place." },
+        { "id": 502, "label": "Keep the area safe and correct the load using the approved procedure." },
+        { "id": 503, "label": "Remove the lowest item by hand." },
+        { "id": 504, "label": "Leave it until the pallet is required." }
+      ]
+    }
+  ]
+}

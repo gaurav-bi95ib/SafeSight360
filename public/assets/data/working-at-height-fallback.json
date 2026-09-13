@@ -1,0 +1,77 @@
+{
+  "scenario": {
+    "id": 3,
+    "slug": "working-at-height",
+    "version": "1.0.0",
+    "title": "Working at Height",
+    "summary": "Safety principles for working above ground level.",
+    "mission": "Identify unsafe working at height practices. Check equipment and follow the hierarchy of controls.",
+    "durationSeconds": 120,
+    "maxHazards": 4,
+    "correctPoints": 100,
+    "wrongPenalty": 20,
+    "scoringFormulaVersion": "scoring-v1",
+    "moduleType": "panorama",
+    "panoramaUrl": "/assets/panorama/working-at-height-360-v2.png",
+    "panoramaWidth": 1774,
+    "cameraProfile": "height-wide-v2",
+    "initialView": { "yaw": 1.87, "pitch": 0.47, "fov": 2.042035 },
+    "maxFov": 2.181662,
+    "rollbackPanoramaUrl": "/assets/panorama/working-at-height-360-v1.png",
+    "rollbackCameraProfile": "height-standard-v1",
+    "rollbackInitialView": { "yaw": 1.87, "pitch": 0.47, "fov": 1.570796 }
+  },
+  "hazards": [
+    { "id": 201, "code": "WH1", "title": "Overreaching on ladder", "topic": "Working at Height", "yaw": -1.98, "pitch": 0.34, "hotspotSize": 58, "feedback": "Correct. Overreaching can cause the ladder to tip over. Move the ladder instead.", "reviewText": "Never overreach while on a ladder. Keep your belt buckle inside the stiles." },
+    { "id": 202, "code": "WH2", "title": "Tools left unsecured at height", "topic": "Working at Height", "yaw": 1.32, "pitch": 0.28, "hotspotSize": 54, "feedback": "Correct. Unsecured tools can fall and injure people below.", "reviewText": "Secure all tools and materials when working at height." },
+    { "id": 203, "code": "WH3", "title": "Ladder on uneven surface", "topic": "Working at Height", "yaw": 0.78, "pitch": -0.28, "hotspotSize": 54, "feedback": "Correct. Ladders must always be placed on firm, level ground.", "reviewText": "Ensure stable footing for all access equipment." },
+    { "id": 204, "code": "WH4", "title": "Climbing with items in hands", "topic": "Working at Height", "yaw": 2.48, "pitch": -0.02, "hotspotSize": 58, "feedback": "Correct. You must maintain three points of contact when climbing.", "reviewText": "Keep hands free when climbing. Use a tool belt or hoist." }
+  ],
+  "questions": [
+    {
+      "id": 1, "code": "Q1", "prompt": "What is the first step in the Working at Height hierarchy of controls?", "correctOptionId": 103,
+      "explanation": "The primary goal is to avoid working at height if the task can be done safely from the ground.",
+      "options": [
+        { "id": 101, "label": "Use personal fall arrest equipment" },
+        { "id": 102, "label": "Provide collective fall prevention (e.g., guardrails)" },
+        { "id": 103, "label": "Avoid working at height completely if possible" }
+      ]
+    },
+    {
+      "id": 2, "code": "Q2", "prompt": "How many points of contact should be maintained on a ladder?", "correctOptionId": 202,
+      "explanation": "Maintain at least three points of contact (two feet and one hand, or two hands and one foot).",
+      "options": [
+        { "id": 201, "label": "Two" },
+        { "id": 202, "label": "Three" },
+        { "id": 203, "label": "Four" }
+      ]
+    },
+    {
+      "id": 3, "code": "Q3", "prompt": "What should you check before using a ladder?", "correctOptionId": 303,
+      "explanation": "A visual inspection for damage must be done before every use.",
+      "options": [
+        { "id": 301, "label": "That it is the right color" },
+        { "id": 302, "label": "That it was bought recently" },
+        { "id": 303, "label": "That it is free from defects and damage" }
+      ]
+    },
+    {
+      "id": 4, "code": "Q4", "prompt": "What is the 'belt buckle rule' for ladder safety?", "correctOptionId": 401,
+      "explanation": "Keeping your belt buckle between the stiles prevents overreaching and tipping.",
+      "options": [
+        { "id": 401, "label": "Keep your belt buckle between the ladder stiles" },
+        { "id": 402, "label": "Wear a heavy duty belt" },
+        { "id": 403, "label": "Buckle the ladder to the wall" }
+      ]
+    },
+    {
+      "id": 5, "code": "Q5", "prompt": "Who is responsible for ensuring safety when working at height?", "correctOptionId": 501,
+      "explanation": "Everyone has a responsibility, both employers (to provide safe equipment) and employees (to use it safely).",
+      "options": [
+        { "id": 501, "label": "Both the employer and the employee" },
+        { "id": 502, "label": "Only the health and safety manager" },
+        { "id": 503, "label": "Only the person doing the work" }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "scenario": {
+    "id": 6,
+    "slug": "cyber-awareness",
+    "version": "1.0.0",
+    "title": "Cyber Awareness",
+    "summary": "5 interactive cyber mini-games.",
+    "mission": "Complete the five cyber challenges.",
+    "durationSeconds": 480,
+    "maxHazards": 0,
+    "correctPoints": 100,
+    "wrongPenalty": 0,
+    "scoringFormulaVersion": "scoring-v1",
+    "moduleType": "interactive",
+    "panoramaUrl": "",
+    "panoramaWidth": 0,
+    "initialView": { "yaw": 0, "pitch": 0, "fov": 0 }
+  },
+  "hazards": [],
+  "questions": []
+}

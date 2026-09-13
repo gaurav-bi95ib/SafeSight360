@@ -1,0 +1,78 @@
+{
+  "scenario": {
+    "id": 2,
+    "slug": "manual-handling",
+    "version": "1.0.0",
+    "title": "Manual Handling",
+    "summary": "Safe lifting and carrying techniques in the warehouse.",
+    "mission": "Identify poor manual handling practices. Apply the TILE (Task, Individual, Load, Environment) framework to ensure safe operations.",
+    "durationSeconds": 120,
+    "maxHazards": 4,
+    "correctPoints": 100,
+    "wrongPenalty": 20,
+    "scoringFormulaVersion": "scoring-v1",
+    "moduleType": "panorama",
+    "panoramaUrl": "/assets/panorama/manual-handling-360-v2.png",
+    "panoramaWidth": 1774,
+    "cameraProfile": "manual-wide-v3",
+    "initialView": { "yaw": -0.38, "pitch": -0.13, "fov": 2.042035 },
+    "maxFov": 2.181662,
+    "rollbackPanoramaUrl": "/assets/panorama/manual-handling-360-v1.png",
+    "rollbackCameraProfile": "manual-wide-v2",
+    "rollbackInitialView": { "yaw": -0.38, "pitch": -0.13, "fov": 1.954769 },
+    "legacyInitialView": { "yaw": -0.38, "pitch": -0.13, "fov": 1.570796 }
+  },
+  "hazards": [
+    { "id": 101, "code": "MH1", "title": "Incorrect lifting posture", "topic": "Manual Handling", "yaw": -2.50, "pitch": -0.12, "hotspotSize": 58, "feedback": "Correct. Bending at the waist and twisting is a major cause of back injuries.", "reviewText": "Always bend knees and keep back straight." },
+    { "id": 102, "code": "MH2", "title": "Obstructed view while carrying", "topic": "Manual Handling", "yaw": -1.26, "pitch": -0.10, "hotspotSize": 54, "feedback": "Correct. The load is too high, obscuring the worker's vision.", "reviewText": "Ensure clear line of sight when carrying loads." },
+    { "id": 103, "code": "MH3", "title": "Carrying load away from body", "topic": "Manual Handling", "yaw": 1.15, "pitch": -0.10, "hotspotSize": 54, "feedback": "Correct. Holding the load away from the body increases strain.", "reviewText": "Keep the load close to your center of gravity." },
+    { "id": 104, "code": "MH4", "title": "Not using available equipment", "topic": "Manual Handling", "yaw": 2.63, "pitch": -0.10, "hotspotSize": 58, "feedback": "Correct. The worker is struggling manually when a pallet truck is nearby.", "reviewText": "Always use mechanical aids when appropriate." }
+  ],
+  "questions": [
+    {
+      "id": 1, "code": "Q1", "prompt": "What does TILE stand for in manual handling?", "correctOptionId": 102,
+      "explanation": "TILE stands for Task, Individual, Load, Environment.",
+      "options": [
+        { "id": 101, "label": "Time, Item, Location, Energy" },
+        { "id": 102, "label": "Task, Individual, Load, Environment" },
+        { "id": 103, "label": "Transport, Inspection, Lifting, Execution" }
+      ]
+    },
+    {
+      "id": 2, "code": "Q2", "prompt": "When lifting a load from the floor, you should...", "correctOptionId": 201,
+      "explanation": "Bend your knees and keep your back straight.",
+      "options": [
+        { "id": 201, "label": "Bend your knees and keep your back straight" },
+        { "id": 202, "label": "Keep legs straight and bend at the waist" },
+        { "id": 203, "label": "Twist your body as you lift" }
+      ]
+    },
+    {
+      "id": 3, "code": "Q3", "prompt": "If a load is too heavy, what is the best immediate action?", "correctOptionId": 303,
+      "explanation": "Ask for help or use mechanical lifting aids.",
+      "options": [
+        { "id": 301, "label": "Try to drag it instead" },
+        { "id": 302, "label": "Lift it very quickly" },
+        { "id": 303, "label": "Use a mechanical aid or ask for assistance" }
+      ]
+    },
+    {
+      "id": 4, "code": "Q4", "prompt": "Where should the heaviest part of a load be positioned when carrying?", "correctOptionId": 401,
+      "explanation": "The heaviest side should be closest to your body.",
+      "options": [
+        { "id": 401, "label": "Closest to your body" },
+        { "id": 402, "label": "Furthest from your body" },
+        { "id": 403, "label": "At the top of the load" }
+      ]
+    },
+    {
+      "id": 5, "code": "Q5", "prompt": "Which environmental factor most affects safe lifting?", "correctOptionId": 502,
+      "explanation": "Uneven or slippery floors significantly increase the risk of accidents.",
+      "options": [
+        { "id": 501, "label": "The color of the walls" },
+        { "id": 502, "label": "Uneven or slippery floors" },
+        { "id": 503, "label": "The time of day" }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "scenario": {
+    "id": 4,
+    "slug": "five-whys",
+    "version": "1.0.0",
+    "title": "5 Whys — Root Cause",
+    "summary": "Root cause analysis puzzle.",
+    "mission": "Drill through five layers of causation to find the root cause.",
+    "durationSeconds": 300,
+    "maxHazards": 0,
+    "correctPoints": 100,
+    "wrongPenalty": 0,
+    "scoringFormulaVersion": "scoring-v1",
+    "moduleType": "puzzle",
+    "panoramaUrl": "",
+    "panoramaWidth": 0,
+    "initialView": { "yaw": 0, "pitch": 0, "fov": 0 }
+  },
+  "hazards": [],
+  "questions": []
+}

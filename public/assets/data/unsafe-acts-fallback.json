@@ -1,0 +1,77 @@
+{
+  "scenario": {
+    "id": 5,
+    "slug": "unsafe-acts",
+    "version": "1.0.0",
+    "title": "Unsafe Acts",
+    "summary": "Identifying behavioral risks and unsafe actions.",
+    "mission": "Observe the workers and identify unsafe acts or behaviors. Consider Human Factors and Last Minute Risk Assessments.",
+    "durationSeconds": 120,
+    "maxHazards": 4,
+    "correctPoints": 100,
+    "wrongPenalty": 20,
+    "scoringFormulaVersion": "scoring-v1",
+    "moduleType": "panorama",
+    "panoramaUrl": "/assets/panorama/unsafe-acts-360-v2.png",
+    "panoramaWidth": 1774,
+    "cameraProfile": "unsafe-wide-v2",
+    "initialView": { "yaw": 2.50, "pitch": 0.19, "fov": 2.042035 },
+    "maxFov": 2.181662,
+    "rollbackPanoramaUrl": "/assets/panorama/unsafe-acts-360-v1.png",
+    "rollbackCameraProfile": "unsafe-standard-v1",
+    "rollbackInitialView": { "yaw": 2.50, "pitch": 0.19, "fov": 1.570796 }
+  },
+  "hazards": [
+    { "id": 301, "code": "UA1", "title": "Bypassing safety guard", "topic": "Unsafe Acts", "yaw": -2.36, "pitch": -0.04, "hotspotSize": 58, "feedback": "Correct. Bypassing machine guards is a critical unsafe act and highly dangerous.", "reviewText": "Never remove or bypass safety guards on equipment." },
+    { "id": 302, "code": "UA2", "title": "Using mobile phone while walking", "topic": "Unsafe Acts", "yaw": -0.73, "pitch": -0.06, "hotspotSize": 54, "feedback": "Correct. Distraction causes many accidents in operational areas.", "reviewText": "Stay alert; do not use mobile phones while walking in operational areas." },
+    { "id": 303, "code": "UA3", "title": "Rushing / Running", "topic": "Unsafe Acts", "yaw": 1.00, "pitch": -0.06, "hotspotSize": 54, "feedback": "Correct. Running increases the risk of slips, trips, and collisions.", "reviewText": "Never run in the warehouse." },
+    { "id": 304, "code": "UA4", "title": "Throwing items instead of passing", "topic": "Unsafe Acts", "yaw": 2.35, "pitch": 0.02, "hotspotSize": 58, "feedback": "Correct. Throwing items can cause injury or damage.", "reviewText": "Hand over items safely; do not throw them." }
+  ],
+  "questions": [
+    {
+      "id": 1, "code": "Q1", "prompt": "What does LMRA stand for?", "correctOptionId": 102,
+      "explanation": "LMRA is a Last Minute Risk Assessment done immediately before starting a task.",
+      "options": [
+        { "id": 101, "label": "Logistics Management and Resource Allocation" },
+        { "id": 102, "label": "Last Minute Risk Assessment" },
+        { "id": 103, "label": "Low Mitigation Risk Area" }
+      ]
+    },
+    {
+      "id": 2, "code": "Q2", "prompt": "What is the primary purpose of an LMRA?", "correctOptionId": 201,
+      "explanation": "It helps identify any immediate hazards that may have been missed or changed.",
+      "options": [
+        { "id": 201, "label": "To pause and check for immediate hazards before starting work" },
+        { "id": 202, "label": "To fill out paperwork for HR" },
+        { "id": 203, "label": "To clock in for the shift" }
+      ]
+    },
+    {
+      "id": 3, "code": "Q3", "prompt": "Which of these is considered a 'Human Factor' that increases risk?", "correctOptionId": 302,
+      "explanation": "Fatigue significantly impairs judgement and reaction times.",
+      "options": [
+        { "id": 301, "label": "Wearing high-visibility clothing" },
+        { "id": 302, "label": "Fatigue or tiredness" },
+        { "id": 303, "label": "Using a pallet truck" }
+      ]
+    },
+    {
+      "id": 4, "code": "Q4", "prompt": "If you see a colleague performing an unsafe act, you should...", "correctOptionId": 403,
+      "explanation": "Safety is everyone's responsibility. Intervene politely but firmly.",
+      "options": [
+        { "id": 401, "label": "Ignore it, it's their problem" },
+        { "id": 402, "label": "Wait until the next safety meeting to mention it" },
+        { "id": 403, "label": "Intervene immediately and respectfully" }
+      ]
+    },
+    {
+      "id": 5, "code": "Q5", "prompt": "Why do people sometimes bypass safety guards?", "correctOptionId": 501,
+      "explanation": "Time pressure is a common, but unacceptable, reason for bypassing safety features.",
+      "options": [
+        { "id": 501, "label": "To save time or increase production speed" },
+        { "id": 502, "label": "Because the guards are too heavy" },
+        { "id": 503, "label": "Because guards are only for decoration" }
+      ]
+    }
+  ]
+}
