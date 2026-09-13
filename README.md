@@ -37,4 +37,4 @@ The platform includes four distinct 2:1 equirectangular training scenes: Warehou
 
 Registered trainees can use the 1v1 Safety Arena to create an eight-character private challenge code, join the same module from another account, submit one verified attempt each, and compare the final scores. Challenge attempts are validated against the participant, module, and one-attempt rule on the server.
 
-See `IMPLEMENTATION_PLAN.md` for architecture, milestones, traceability, risks, and the Definition of Done.
+See `docs/PRD.md`, `docs/ARCHITECTURE.md`, `docs/ROLES_AND_RESPONSIBILITIES.md`, and `docs/CONTRIBUTION_PLAN.md` for the requirements baseline, architecture, ownership model, and GitHub workflow.
