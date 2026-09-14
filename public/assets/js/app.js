@@ -613,17 +613,25 @@ function handleHazard(event, hazard, button) {
 const panoContainer = document.querySelector('#pano');
 panoContainer?.addEventListener('dragstart', (event) => event.preventDefault());
 panoContainer?.addEventListener('pointerdown', (e) => {
+  if (state.current !== 'challenge') return;
+  e.preventDefault();
   state.pointerStart = { x: e.clientX, y: e.clientY };
+  panoContainer.setPointerCapture?.(e.pointerId);
   document.body.classList.add('is-component-dragging');
 });
+panoContainer?.addEventListener('pointermove', (e) => {
+  if (state.current === 'challenge') e.preventDefault();
+});
 panoContainer?.addEventListener('pointerup', (e) => {
+  panoContainer.releasePointerCapture?.(e.pointerId);
   document.body.classList.remove('is-component-dragging');
   if (!state.pointerStart || e.target.closest('.hazard-hotspot')) return;
   const dist = Math.hypot(e.clientX - state.pointerStart.x, e.clientY - state.pointerStart.y);
   state.pointerStart = null;
   if (dist <= 7) handleWrongSelection();
 });
-panoContainer?.addEventListener('pointercancel', () => {
+panoContainer?.addEventListener('pointercancel', (e) => {
+  panoContainer.releasePointerCapture?.(e.pointerId);
   state.pointerStart = null;
   document.body.classList.remove('is-component-dragging');
 });

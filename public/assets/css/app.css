@@ -1434,6 +1434,9 @@ h1 {
   overflow: hidden;
   min-height: 480px;
   height: min(68vh, 700px);
+  contain: layout paint;
+  touch-action: none;
+  overscroll-behavior: contain;
   background: #0a1c2e;
   border: 1px solid var(--glass-border);
   border-radius: var(--radius);
