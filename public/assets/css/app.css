@@ -141,6 +141,11 @@ img { max-width: 100%; }
   border-color: var(--glass-border-h);
 }
 
+.theme-toggle[data-active-theme="light"] {
+  background: rgba(255,255,255,0.76);
+  border-color: rgba(149,164,184,0.5);
+}
+
 .theme-toggle span:first-child { font-size: 1rem; line-height: 1; }
 
 :root[data-theme="light"] .site-header {
@@ -3290,6 +3295,7 @@ h1 {
   padding: 18px 22px;
   margin-bottom: 18px;
   border-radius: 14px;
+  align-items: center;
 }
 
 .dashboard-avatar {
@@ -3300,6 +3306,8 @@ h1 {
 }
 
 .dashboard-name { font-size: 1.55rem; }
+.dashboard-greeting,
+.dashboard-name { overflow-wrap: anywhere; }
 .dashboard-level-row { gap: 8px; }
 .dashboard-xp { margin-top: 11px; }
 .dashboard-xp-track { height: 6px; }
