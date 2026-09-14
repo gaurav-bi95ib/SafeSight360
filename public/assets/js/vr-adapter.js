@@ -14,6 +14,8 @@ export class VRAdapter {
     this.viewer = null;
     this.scene = null;
     this.hotspots = [];
+    this.minFov = config.minFov || (42 * Math.PI / 180);
+    this.maxFov = config.maxFov || (122 * Math.PI / 180);
   }
 
   /**
@@ -37,10 +39,14 @@ export class VRAdapter {
         
         const limiter = window.Marzipano.RectilinearView.limit.traditional(
           this.config.panoramaWidth || 4000,
-          this.config.maxFov || (100 * Math.PI / 180)
+          this.maxFov
         );
         
-        const view = new window.Marzipano.RectilinearView(this.config.initialView, limiter);
+        const initialView = {
+          ...this.config.initialView,
+          fov: this.clampFov(this.config.initialView?.fov || this.maxFov)
+        };
+        const view = new window.Marzipano.RectilinearView(initialView, limiter);
 
         this.scene = this.viewer.createScene({ source, geometry, view, pinFirstLevel: true });
         this.scene.switchTo();
@@ -99,7 +105,7 @@ export class VRAdapter {
   zoom(delta) {
     if (this.viewer && this.scene) {
       const v = this.scene.view();
-      v.setFov(v.fov() + delta);
+      v.setFov(this.clampFov(v.fov() + delta));
     }
   }
   
@@ -110,8 +116,12 @@ export class VRAdapter {
     if (this.viewer && this.scene && this.config.initialView) {
       this.lookTo(this.config.initialView.yaw, this.config.initialView.pitch);
       const v = this.scene.view();
-      v.setFov(this.config.initialView.fov);
+      v.setFov(this.clampFov(this.config.initialView.fov));
     }
+  }
+
+  clampFov(fov) {
+    return Math.min(this.maxFov, Math.max(this.minFov, fov));
   }
 
   /**

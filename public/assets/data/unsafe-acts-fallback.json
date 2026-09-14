@@ -15,6 +15,7 @@
     "panoramaUrl": "/assets/panorama/unsafe-acts-360-v2.png",
     "panoramaWidth": 1774,
     "cameraProfile": "unsafe-wide-v2",
+    "sceneFocus": "Human factors and unsafe behaviours including guarding, distraction, rushing and unsafe passing",
     "initialView": { "yaw": 2.50, "pitch": 0.19, "fov": 2.042035 },
     "maxFov": 2.181662,
     "rollbackPanoramaUrl": "/assets/panorama/unsafe-acts-360-v1.png",

@@ -15,6 +15,7 @@
     "panoramaUrl": "/assets/panorama/manual-handling-360-v2.png",
     "panoramaWidth": 1774,
     "cameraProfile": "manual-wide-v3",
+    "sceneFocus": "Manual handling warehouse task with TILE-based lifting and carrying risks",
     "initialView": { "yaw": -0.38, "pitch": -0.13, "fov": 2.042035 },
     "maxFov": 2.181662,
     "rollbackPanoramaUrl": "/assets/panorama/manual-handling-360-v1.png",
