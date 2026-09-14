@@ -15,6 +15,7 @@
     "panoramaUrl": "/assets/panorama/working-at-height-360-v2.png",
     "panoramaWidth": 1774,
     "cameraProfile": "height-wide-v2",
+    "sceneFocus": "Working-at-height setup with ladder, unsecured tools, access and three-point-contact risks",
     "initialView": { "yaw": 1.87, "pitch": 0.47, "fov": 2.042035 },
     "maxFov": 2.181662,
     "rollbackPanoramaUrl": "/assets/panorama/working-at-height-360-v1.png",
