@@ -51,7 +51,8 @@ function applyTheme(theme, persist = true) {
   const nextLabel = isDark ? 'light' : 'dark';
   if (button) {
     button.setAttribute('aria-label', `Switch to ${nextLabel} theme`);
-    button.setAttribute('aria-pressed', String(!isDark));
+    button.setAttribute('aria-pressed', String(isDark));
+    button.dataset.activeTheme = next;
     button.title = `Switch to ${nextLabel} theme`;
   }
   if (icon) icon.textContent = isDark ? '☀' : '☾';
@@ -465,10 +466,10 @@ function renderRecentAttemptsTable(attempts) {
   }
   tbody.innerHTML = attempts.map(a => `
     <tr>
-      <td>${a.completedAt ? a.completedAt.slice(0, 10) : 'Today'}</td>
-      <td>${a.moduleTitle || 'Warehouse Hazard Hunt'}</td>
+      <td>${escapeHtml(a.completedAt ? a.completedAt.slice(0, 10) : 'Today')}</td>
+      <td>${escapeHtml(a.moduleTitle || 'Warehouse Hazard Hunt')}</td>
       <td><strong>${a.overallPercent}%</strong></td>
-      <td><span class="module-rating-badge ${a.rating ? a.rating.toLowerCase() : 'bronze'}">${a.rating}</span></td>
+      <td><span class="module-rating-badge ${a.rating ? a.rating.toLowerCase() : 'bronze'}">${escapeHtml(a.rating || 'Bronze')}</span></td>
       <td>${formatTime(a.elapsedSeconds || 0)}</td>
     </tr>
   `).join('');
@@ -511,7 +512,7 @@ async function startModuleFlow(module, challengeCode = null) {
     if (bMission) bMission.textContent = state.bundle.scenario.mission;
     if (beginBtn) {
       beginBtn.disabled = false;
-      beginBtn.innerHTML = 'Enter the warehouse <span aria-hidden="true">→</span>';
+      beginBtn.innerHTML = `Enter ${escapeHtml(module.title)} <span aria-hidden="true">→</span>`;
     }
   } else if (module.screen === 'fivewhys') {
     initFiveWhys((result) => submitInteractiveResult(result));
@@ -612,17 +613,25 @@ function handleHazard(event, hazard, button) {
 const panoContainer = document.querySelector('#pano');
 panoContainer?.addEventListener('dragstart', (event) => event.preventDefault());
 panoContainer?.addEventListener('pointerdown', (e) => {
+  if (state.current !== 'challenge') return;
+  e.preventDefault();
   state.pointerStart = { x: e.clientX, y: e.clientY };
+  panoContainer.setPointerCapture?.(e.pointerId);
   document.body.classList.add('is-component-dragging');
 });
+panoContainer?.addEventListener('pointermove', (e) => {
+  if (state.current === 'challenge') e.preventDefault();
+});
 panoContainer?.addEventListener('pointerup', (e) => {
+  panoContainer.releasePointerCapture?.(e.pointerId);
   document.body.classList.remove('is-component-dragging');
   if (!state.pointerStart || e.target.closest('.hazard-hotspot')) return;
   const dist = Math.hypot(e.clientX - state.pointerStart.x, e.clientY - state.pointerStart.y);
   state.pointerStart = null;
   if (dist <= 7) handleWrongSelection();
 });
-panoContainer?.addEventListener('pointercancel', () => {
+panoContainer?.addEventListener('pointercancel', (e) => {
+  panoContainer.releasePointerCapture?.(e.pointerId);
   state.pointerStart = null;
   document.body.classList.remove('is-component-dragging');
 });

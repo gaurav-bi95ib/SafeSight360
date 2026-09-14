@@ -15,6 +15,7 @@
     "panoramaUrl": "/assets/panorama/warehouse-360-v3.png",
     "panoramaWidth": 1774,
     "cameraProfile": "warehouse-wide-v3",
+    "sceneFocus": "Automotive logistics hazard-perception warehouse with eight verified safety hazards",
     "initialView": { "yaw": -1.2, "pitch": -0.02, "fov": 2.042035 },
     "maxFov": 2.181662,
     "rollbackPanoramaUrl": "/assets/panorama/warehouse-360-v2.png",
