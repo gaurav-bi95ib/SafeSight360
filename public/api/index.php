@@ -10,6 +10,19 @@ $action = $_GET['action'] ?? 'training';
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
 try {
+    if ($method === 'GET' && $action === 'contract') {
+        jsonResponse([
+            'apiVersion' => '2026-09-15',
+            'moduleTypes' => ['panorama', 'puzzle', 'interactive'],
+            'actions' => [
+                'session', 'training', 'dashboard', 'leaderboard', 'modules',
+                'challenges', 'challenge', 'signup', 'login', 'logout',
+                'answer', 'complete', 'create-challenge', 'join-challenge',
+            ],
+            'challengeCodePattern' => '^[A-F0-9]{8}$',
+        ]);
+    }
+
     if ($method === 'GET' && $action === 'session') {
         jsonResponse([
             'authenticated' => authService()->currentUser() !== null,

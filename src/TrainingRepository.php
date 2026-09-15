@@ -481,6 +481,7 @@ final class TrainingRepository
     /** @return array<string, mixed> */
     public function getChallenge(string $code, int $userId): array
     {
+        $code = self::normalizeChallengeCode($code);
         $stmt = $this->pdo->prepare(
             'SELECT c.challenge_code, c.status, c.challenger_id, c.opponent_id, c.created_at,
                     t.slug AS module_slug, t.title AS module_title,
@@ -496,7 +497,7 @@ final class TrainingRepository
              LEFT JOIN attempts oa ON oa.id = c.opponent_attempt_id
              WHERE c.challenge_code = :code LIMIT 1'
         );
-        $stmt->execute(['code' => strtoupper($code)]);
+        $stmt->execute(['code' => $code]);
         $row = $stmt->fetch();
         if (!$row) throw new InvalidArgumentException('Challenge code not found.');
         if (!in_array($userId, [(int) $row['challenger_id'], (int) ($row['opponent_id'] ?? 0)], true)) {
@@ -508,10 +509,7 @@ final class TrainingRepository
     /** @return array<string, mixed> */
     public function joinChallenge(string $code, int $userId): array
     {
-        $code = strtoupper(trim($code));
-        if (preg_match('/^[A-F0-9]{8}$/', $code) !== 1) {
-            throw new InvalidArgumentException('Enter a valid 8-character challenge code.');
-        }
+        $code = self::normalizeChallengeCode($code);
         $stmt = $this->pdo->prepare(
             'UPDATE challenge_attempts SET opponent_id = :uid, status = "accepted"
              WHERE challenge_code = :code AND challenger_id <> :challenger_uid
@@ -527,10 +525,11 @@ final class TrainingRepository
     /** @return array<string, mixed> */
     public function attachChallengeAttempt(string $code, int $userId, int $attemptId): array
     {
+        $code = self::normalizeChallengeCode($code);
         $this->pdo->beginTransaction();
         try {
             $stmt = $this->pdo->prepare('SELECT * FROM challenge_attempts WHERE challenge_code = :code FOR UPDATE');
-            $stmt->execute(['code' => strtoupper($code)]);
+            $stmt->execute(['code' => $code]);
             $row = $stmt->fetch();
             if (!$row || !in_array($userId, [(int) $row['challenger_id'], (int) ($row['opponent_id'] ?? 0)], true)) {
                 throw new InvalidArgumentException('You are not a participant in this challenge.');
@@ -559,8 +558,9 @@ final class TrainingRepository
 
     public function validateChallengeSubmission(string $code, int $userId, int $trainingId): void
     {
+        $code = self::normalizeChallengeCode($code);
         $stmt = $this->pdo->prepare('SELECT * FROM challenge_attempts WHERE challenge_code = :code LIMIT 1');
-        $stmt->execute(['code' => strtoupper($code)]);
+        $stmt->execute(['code' => $code]);
         $row = $stmt->fetch();
         if (!$row || !in_array($userId, [(int) $row['challenger_id'], (int) ($row['opponent_id'] ?? 0)], true)) {
             throw new InvalidArgumentException('You are not a participant in this challenge.');
@@ -570,6 +570,15 @@ final class TrainingRepository
         }
         $column = $userId === (int) $row['challenger_id'] ? 'challenger_attempt_id' : 'opponent_attempt_id';
         if ($row[$column] !== null) throw new InvalidArgumentException('You have already completed this challenge.');
+    }
+
+    private static function normalizeChallengeCode(string $code): string
+    {
+        $code = strtoupper(trim($code));
+        if (preg_match('/^[A-F0-9]{8}$/', $code) !== 1) {
+            throw new InvalidArgumentException('Enter a valid 8-character challenge code.');
+        }
+        return $code;
     }
 
     /** @param array<string, mixed> $row @return array<string, mixed> */

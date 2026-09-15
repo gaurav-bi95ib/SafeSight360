@@ -74,6 +74,8 @@ try {
     expect(in_array('root_cause', $dashboard['badges'], true), 'Special badge persistence failed.');
 
     $challengeCode = $repository->createChallenge($userId, 'warehouse-hazard-hunt');
+    $ownChallenge = $repository->getChallenge(' ' . strtolower($challengeCode) . ' ', $userId);
+    expect($ownChallenge['code'] === $challengeCode, 'Challenge code normalization failed.');
     $outsiderStatement = $pdo->prepare(
         "INSERT INTO users (display_name, email, password_hash) VALUES ('Outsider', :email, 'not-used')"
     );
