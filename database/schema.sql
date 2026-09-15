@@ -107,6 +107,7 @@ CREATE TABLE IF NOT EXISTS attempts (
     CONSTRAINT fk_attempt_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
     CONSTRAINT fk_attempt_training FOREIGN KEY (training_version_id) REFERENCES training_versions(id),
     KEY idx_attempt_user_completed (user_id, completed_at),
+    KEY idx_attempt_training_user (training_version_id, user_id),
     KEY idx_attempt_completed (completed_at),
     KEY idx_attempt_rating (rating)
 ) ENGINE=InnoDB;
@@ -122,6 +123,8 @@ CREATE TABLE IF NOT EXISTS challenge_attempts (
   status ENUM('pending', 'accepted', 'completed') DEFAULT 'pending',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   UNIQUE KEY uq_challenge_code (challenge_code),
+  KEY idx_challenge_participants (challenger_id, opponent_id, status),
+  KEY idx_challenge_training_status (training_version_id, status),
   CONSTRAINT fk_ca_challenger FOREIGN KEY (challenger_id) REFERENCES users(id) ON DELETE CASCADE,
   CONSTRAINT fk_ca_opponent FOREIGN KEY (opponent_id) REFERENCES users(id) ON DELETE CASCADE,
   CONSTRAINT fk_ca_training FOREIGN KEY (training_version_id) REFERENCES training_versions(id) ON DELETE CASCADE
@@ -141,18 +144,27 @@ ON DUPLICATE KEY UPDATE
     initial_yaw=VALUES(initial_yaw), initial_pitch=VALUES(initial_pitch), initial_fov=VALUES(initial_fov),
     module_type=VALUES(module_type), is_active=VALUES(is_active);
 
--- Insert new modules (placeholders to exist in DB, detailed data is in fallbacks)
+-- Insert new modules. Detailed hazard/quiz content for non-warehouse modules is stored in fallbacks,
+-- while core scoring and camera settings are seeded here for a clean database baseline.
 INSERT INTO training_versions
-    (id, slug, version, title, summary, mission, duration_seconds, max_hazards, module_type, is_active, panorama_url)
+    (id, slug, version, title, summary, mission, duration_seconds, max_hazards, correct_points, wrong_penalty, scoring_formula_version,
+     module_type, is_active, panorama_url, panorama_width, initial_yaw, initial_pitch, initial_fov)
 VALUES
-    (2, 'manual-handling', '1.0.0', 'Manual Handling', 'Safe lifting and carrying techniques.', 'Identify poor manual handling practices.', 120, 4, 'panorama', TRUE, '/assets/panorama/manual-handling-360-v2.png'),
-    (3, 'working-at-height', '1.0.0', 'Working at Height', 'Safety principles for working above ground.', 'Identify unsafe working at height practices.', 120, 4, 'panorama', TRUE, '/assets/panorama/working-at-height-360-v2.png'),
-    (4, 'five-whys', '1.0.0', '5 Whys — Root Cause', 'Root cause analysis puzzle.', 'Drill through causation layers.', 300, 0, 'puzzle', TRUE, ''),
-    (5, 'unsafe-acts', '1.0.0', 'Unsafe Acts', 'Identifying behavioral risks.', 'Identify unsafe acts.', 120, 4, 'panorama', TRUE, '/assets/panorama/unsafe-acts-360-v2.png'),
-    (6, 'cyber-awareness', '1.0.0', 'Cyber Awareness', '5 interactive cyber mini-games.', 'Complete the cyber challenges.', 480, 0, 'interactive', TRUE, '')
+    (2, 'manual-handling', '1.0.0', 'Manual Handling', 'Safe lifting and carrying techniques.', 'Identify poor manual handling practices.', 120, 4, 100, 20, 'scoring-v1',
+     'panorama', TRUE, '/assets/panorama/manual-handling-360-v2.png', 1774, -0.380000, -0.130000, 2.042035),
+    (3, 'working-at-height', '1.0.0', 'Working at Height', 'Safety principles for working above ground.', 'Identify unsafe working at height practices.', 120, 4, 100, 20, 'scoring-v1',
+     'panorama', TRUE, '/assets/panorama/working-at-height-360-v2.png', 1774, 1.870000, 0.470000, 2.042035),
+    (4, 'five-whys', '1.0.0', '5 Whys — Root Cause', 'Root cause analysis puzzle.', 'Drill through causation layers.', 300, 0, 100, 20, 'scoring-v1',
+     'puzzle', TRUE, '', 0, 0.000000, 0.000000, 0.000000),
+    (5, 'unsafe-acts', '1.0.0', 'Unsafe Acts', 'Identifying behavioral risks.', 'Identify unsafe acts.', 120, 4, 100, 20, 'scoring-v1',
+     'panorama', TRUE, '/assets/panorama/unsafe-acts-360-v2.png', 1774, 2.500000, 0.190000, 2.042035),
+    (6, 'cyber-awareness', '1.0.0', 'Cyber Awareness', '5 interactive cyber mini-games.', 'Complete the cyber challenges.', 480, 0, 100, 20, 'scoring-v1',
+     'interactive', TRUE, '', 0, 0.000000, 0.000000, 0.000000)
 ON DUPLICATE KEY UPDATE title=VALUES(title), summary=VALUES(summary), mission=VALUES(mission),
     duration_seconds=VALUES(duration_seconds), max_hazards=VALUES(max_hazards),
-    module_type=VALUES(module_type), panorama_url=VALUES(panorama_url), is_active=VALUES(is_active);
+    correct_points=VALUES(correct_points), wrong_penalty=VALUES(wrong_penalty), scoring_formula_version=VALUES(scoring_formula_version),
+    module_type=VALUES(module_type), panorama_url=VALUES(panorama_url), panorama_width=VALUES(panorama_width),
+    initial_yaw=VALUES(initial_yaw), initial_pitch=VALUES(initial_pitch), initial_fov=VALUES(initial_fov), is_active=VALUES(is_active);
 
 -- Manual Handling camera profile v3: corrected v2 panorama and wider initial overview.
 -- Rollback asset/FOV: manual-handling-360-v1.png / 1.954769.

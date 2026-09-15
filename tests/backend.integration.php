@@ -34,7 +34,15 @@ try {
 
     foreach (['warehouse-hazard-hunt', 'manual-handling', 'working-at-height', 'five-whys', 'unsafe-acts', 'cyber-awareness'] as $slug) {
         $bundle = $repository->getActiveBundle($slug);
-        expect(in_array($bundle['scenario']['moduleType'] ?? '', ['panorama', 'puzzle', 'interactive'], true), "$slug is missing moduleType");
+        $scenario = $bundle['scenario'];
+        expect(in_array($scenario['moduleType'] ?? '', ['panorama', 'puzzle', 'interactive'], true), "$slug is missing moduleType");
+        expect(isset($scenario['durationSeconds'], $scenario['scoringFormulaVersion']), "$slug is missing scoring metadata");
+        if (($scenario['moduleType'] ?? '') === 'panorama') {
+            expect(($scenario['panoramaUrl'] ?? '') !== '', "$slug is missing panoramaUrl");
+            expect(isset($scenario['initialView']['yaw'], $scenario['initialView']['pitch'], $scenario['initialView']['fov']), "$slug is missing initial view");
+            expect(($scenario['cameraProfile'] ?? '') !== '', "$slug is missing cameraProfile");
+            expect(($scenario['sceneFocus'] ?? '') !== '', "$slug is missing sceneFocus");
+        }
     }
 
     $cyber = $service->complete([
@@ -74,6 +82,8 @@ try {
     expect(in_array('root_cause', $dashboard['badges'], true), 'Special badge persistence failed.');
 
     $challengeCode = $repository->createChallenge($userId, 'warehouse-hazard-hunt');
+    $ownChallenge = $repository->getChallenge(' ' . strtolower($challengeCode) . ' ', $userId);
+    expect($ownChallenge['code'] === $challengeCode, 'Challenge code normalization failed.');
     $outsiderStatement = $pdo->prepare(
         "INSERT INTO users (display_name, email, password_hash) VALUES ('Outsider', :email, 'not-used')"
     );

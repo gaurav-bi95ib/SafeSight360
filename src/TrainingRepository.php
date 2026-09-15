@@ -22,10 +22,7 @@ final class TrainingRepository
 
         $fallback = $this->fallbackBundle($slug);
         if ($fallback !== null && $slug !== 'warehouse-hazard-hunt') {
-            $fallback['scenario']['id'] = $trainingId;
-            $fallback['scenario']['slug'] = $scenario['slug'];
-            $fallback['scenario']['moduleType'] = $scenario['module_type'];
-            $fallback['scenario']['panoramaUrl'] = $scenario['panorama_url'] ?: $fallback['scenario']['panoramaUrl'];
+            $fallback['scenario'] = $this->mergeScenarioMetadata($fallback['scenario'], $scenario);
             return $fallback;
         }
 
@@ -79,10 +76,13 @@ final class TrainingRepository
                 'panoramaUrl' => $scenario['panorama_url'],
                 'panoramaWidth' => (int) $scenario['panorama_width'],
                 'cameraProfile' => $fallback['scenario']['cameraProfile'] ?? null,
+                'sceneFocus' => $fallback['scenario']['sceneFocus'] ?? null,
                 'maxFov' => (float) ($fallback['scenario']['maxFov'] ?? (100 * M_PI / 180)),
+                'minFov' => $fallback['scenario']['minFov'] ?? null,
                 'rollbackPanoramaUrl' => $fallback['scenario']['rollbackPanoramaUrl'] ?? null,
                 'rollbackCameraProfile' => $fallback['scenario']['rollbackCameraProfile'] ?? null,
                 'rollbackInitialView' => $fallback['scenario']['rollbackInitialView'] ?? null,
+                'legacyInitialView' => $fallback['scenario']['legacyInitialView'] ?? null,
                 'moduleType' => $scenario['module_type'],
                 'initialView' => [
                     'yaw' => (float) $scenario['initial_yaw'],
@@ -108,6 +108,39 @@ final class TrainingRepository
                 'options' => $optionsByQuestion[(int) $question['id']] ?? [],
             ], $questions),
         ];
+    }
+
+    /**
+     * @param array<string, mixed> $fallbackScenario
+     * @param array<string, mixed> $databaseScenario
+     * @return array<string, mixed>
+     */
+    private function mergeScenarioMetadata(array $fallbackScenario, array $databaseScenario): array
+    {
+        $fallbackScenario['id'] = (int) $databaseScenario['id'];
+        $fallbackScenario['slug'] = $databaseScenario['slug'];
+        $fallbackScenario['version'] = $databaseScenario['version'];
+        $fallbackScenario['title'] = $databaseScenario['title'];
+        $fallbackScenario['summary'] = $databaseScenario['summary'];
+        $fallbackScenario['mission'] = $databaseScenario['mission'];
+        $fallbackScenario['durationSeconds'] = (int) $databaseScenario['duration_seconds'];
+        $fallbackScenario['maxHazards'] = (int) $databaseScenario['max_hazards'];
+        $fallbackScenario['correctPoints'] = (int) $databaseScenario['correct_points'];
+        $fallbackScenario['wrongPenalty'] = (int) $databaseScenario['wrong_penalty'];
+        $fallbackScenario['scoringFormulaVersion'] = $databaseScenario['scoring_formula_version'];
+        $fallbackScenario['moduleType'] = $databaseScenario['module_type'];
+
+        if (($databaseScenario['panorama_url'] ?? '') !== '') {
+            $fallbackScenario['panoramaUrl'] = $databaseScenario['panorama_url'];
+            $fallbackScenario['panoramaWidth'] = (int) $databaseScenario['panorama_width'];
+            $fallbackScenario['initialView'] = [
+                'yaw' => (float) $databaseScenario['initial_yaw'],
+                'pitch' => (float) $databaseScenario['initial_pitch'],
+                'fov' => (float) $databaseScenario['initial_fov'],
+            ];
+        }
+
+        return $fallbackScenario;
     }
 
     /** @return array{correct: bool, correctOptionId: int, explanation: string} */
@@ -481,6 +514,7 @@ final class TrainingRepository
     /** @return array<string, mixed> */
     public function getChallenge(string $code, int $userId): array
     {
+        $code = self::normalizeChallengeCode($code);
         $stmt = $this->pdo->prepare(
             'SELECT c.challenge_code, c.status, c.challenger_id, c.opponent_id, c.created_at,
                     t.slug AS module_slug, t.title AS module_title,
@@ -496,7 +530,7 @@ final class TrainingRepository
              LEFT JOIN attempts oa ON oa.id = c.opponent_attempt_id
              WHERE c.challenge_code = :code LIMIT 1'
         );
-        $stmt->execute(['code' => strtoupper($code)]);
+        $stmt->execute(['code' => $code]);
         $row = $stmt->fetch();
         if (!$row) throw new InvalidArgumentException('Challenge code not found.');
         if (!in_array($userId, [(int) $row['challenger_id'], (int) ($row['opponent_id'] ?? 0)], true)) {
@@ -508,10 +542,7 @@ final class TrainingRepository
     /** @return array<string, mixed> */
     public function joinChallenge(string $code, int $userId): array
     {
-        $code = strtoupper(trim($code));
-        if (preg_match('/^[A-F0-9]{8}$/', $code) !== 1) {
-            throw new InvalidArgumentException('Enter a valid 8-character challenge code.');
-        }
+        $code = self::normalizeChallengeCode($code);
         $stmt = $this->pdo->prepare(
             'UPDATE challenge_attempts SET opponent_id = :uid, status = "accepted"
              WHERE challenge_code = :code AND challenger_id <> :challenger_uid
@@ -527,10 +558,11 @@ final class TrainingRepository
     /** @return array<string, mixed> */
     public function attachChallengeAttempt(string $code, int $userId, int $attemptId): array
     {
+        $code = self::normalizeChallengeCode($code);
         $this->pdo->beginTransaction();
         try {
             $stmt = $this->pdo->prepare('SELECT * FROM challenge_attempts WHERE challenge_code = :code FOR UPDATE');
-            $stmt->execute(['code' => strtoupper($code)]);
+            $stmt->execute(['code' => $code]);
             $row = $stmt->fetch();
             if (!$row || !in_array($userId, [(int) $row['challenger_id'], (int) ($row['opponent_id'] ?? 0)], true)) {
                 throw new InvalidArgumentException('You are not a participant in this challenge.');
@@ -559,8 +591,9 @@ final class TrainingRepository
 
     public function validateChallengeSubmission(string $code, int $userId, int $trainingId): void
     {
+        $code = self::normalizeChallengeCode($code);
         $stmt = $this->pdo->prepare('SELECT * FROM challenge_attempts WHERE challenge_code = :code LIMIT 1');
-        $stmt->execute(['code' => strtoupper($code)]);
+        $stmt->execute(['code' => $code]);
         $row = $stmt->fetch();
         if (!$row || !in_array($userId, [(int) $row['challenger_id'], (int) ($row['opponent_id'] ?? 0)], true)) {
             throw new InvalidArgumentException('You are not a participant in this challenge.');
@@ -570,6 +603,15 @@ final class TrainingRepository
         }
         $column = $userId === (int) $row['challenger_id'] ? 'challenger_attempt_id' : 'opponent_attempt_id';
         if ($row[$column] !== null) throw new InvalidArgumentException('You have already completed this challenge.');
+    }
+
+    private static function normalizeChallengeCode(string $code): string
+    {
+        $code = strtoupper(trim($code));
+        if (preg_match('/^[A-F0-9]{8}$/', $code) !== 1) {
+            throw new InvalidArgumentException('Enter a valid 8-character challenge code.');
+        }
+        return $code;
     }
 
     /** @param array<string, mixed> $row @return array<string, mixed> */
