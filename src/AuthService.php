@@ -101,7 +101,14 @@ final class AuthService
         $_SESSION = [];
         if (ini_get('session.use_cookies')) {
             $params = session_get_cookie_params();
-            setcookie(session_name(), '', time() - 42000, $params['path'], $params['domain'], $params['secure'], $params['httponly']);
+            setcookie(session_name(), '', [
+                'expires' => time() - 42000,
+                'path' => $params['path'],
+                'domain' => $params['domain'],
+                'secure' => $params['secure'],
+                'httponly' => $params['httponly'],
+                'samesite' => $params['samesite'] ?? 'Strict',
+            ]);
         }
         session_destroy();
     }
@@ -110,6 +117,10 @@ final class AuthService
     public function currentUser(): ?array
     {
         if (!isset($_SESSION['user_id'], $_SESSION['user_name'], $_SESSION['user_email'])) {
+            return null;
+        }
+        if (!is_numeric($_SESSION['user_id']) || !is_string($_SESSION['user_name']) || !is_string($_SESSION['user_email'])) {
+            $_SESSION = [];
             return null;
         }
         return [
@@ -138,6 +149,7 @@ final class AuthService
         $_SESSION['user_id'] = $id;
         $_SESSION['user_name'] = $displayName;
         $_SESSION['user_email'] = $email;
+        $_SESSION['auth_started_at'] = time();
         $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
         unset($_SESSION['auth_failures']);
 
