@@ -22,10 +22,7 @@ final class TrainingRepository
 
         $fallback = $this->fallbackBundle($slug);
         if ($fallback !== null && $slug !== 'warehouse-hazard-hunt') {
-            $fallback['scenario']['id'] = $trainingId;
-            $fallback['scenario']['slug'] = $scenario['slug'];
-            $fallback['scenario']['moduleType'] = $scenario['module_type'];
-            $fallback['scenario']['panoramaUrl'] = $scenario['panorama_url'] ?: $fallback['scenario']['panoramaUrl'];
+            $fallback['scenario'] = $this->mergeScenarioMetadata($fallback['scenario'], $scenario);
             return $fallback;
         }
 
@@ -79,10 +76,13 @@ final class TrainingRepository
                 'panoramaUrl' => $scenario['panorama_url'],
                 'panoramaWidth' => (int) $scenario['panorama_width'],
                 'cameraProfile' => $fallback['scenario']['cameraProfile'] ?? null,
+                'sceneFocus' => $fallback['scenario']['sceneFocus'] ?? null,
                 'maxFov' => (float) ($fallback['scenario']['maxFov'] ?? (100 * M_PI / 180)),
+                'minFov' => $fallback['scenario']['minFov'] ?? null,
                 'rollbackPanoramaUrl' => $fallback['scenario']['rollbackPanoramaUrl'] ?? null,
                 'rollbackCameraProfile' => $fallback['scenario']['rollbackCameraProfile'] ?? null,
                 'rollbackInitialView' => $fallback['scenario']['rollbackInitialView'] ?? null,
+                'legacyInitialView' => $fallback['scenario']['legacyInitialView'] ?? null,
                 'moduleType' => $scenario['module_type'],
                 'initialView' => [
                     'yaw' => (float) $scenario['initial_yaw'],
@@ -108,6 +108,39 @@ final class TrainingRepository
                 'options' => $optionsByQuestion[(int) $question['id']] ?? [],
             ], $questions),
         ];
+    }
+
+    /**
+     * @param array<string, mixed> $fallbackScenario
+     * @param array<string, mixed> $databaseScenario
+     * @return array<string, mixed>
+     */
+    private function mergeScenarioMetadata(array $fallbackScenario, array $databaseScenario): array
+    {
+        $fallbackScenario['id'] = (int) $databaseScenario['id'];
+        $fallbackScenario['slug'] = $databaseScenario['slug'];
+        $fallbackScenario['version'] = $databaseScenario['version'];
+        $fallbackScenario['title'] = $databaseScenario['title'];
+        $fallbackScenario['summary'] = $databaseScenario['summary'];
+        $fallbackScenario['mission'] = $databaseScenario['mission'];
+        $fallbackScenario['durationSeconds'] = (int) $databaseScenario['duration_seconds'];
+        $fallbackScenario['maxHazards'] = (int) $databaseScenario['max_hazards'];
+        $fallbackScenario['correctPoints'] = (int) $databaseScenario['correct_points'];
+        $fallbackScenario['wrongPenalty'] = (int) $databaseScenario['wrong_penalty'];
+        $fallbackScenario['scoringFormulaVersion'] = $databaseScenario['scoring_formula_version'];
+        $fallbackScenario['moduleType'] = $databaseScenario['module_type'];
+
+        if (($databaseScenario['panorama_url'] ?? '') !== '') {
+            $fallbackScenario['panoramaUrl'] = $databaseScenario['panorama_url'];
+            $fallbackScenario['panoramaWidth'] = (int) $databaseScenario['panorama_width'];
+            $fallbackScenario['initialView'] = [
+                'yaw' => (float) $databaseScenario['initial_yaw'],
+                'pitch' => (float) $databaseScenario['initial_pitch'],
+                'fov' => (float) $databaseScenario['initial_fov'],
+            ];
+        }
+
+        return $fallbackScenario;
     }
 
     /** @return array{correct: bool, correctOptionId: int, explanation: string} */
