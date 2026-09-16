@@ -559,7 +559,10 @@ final class TrainingRepository
     public function attachChallengeAttempt(string $code, int $userId, int $attemptId): array
     {
         $code = self::normalizeChallengeCode($code);
-        $this->pdo->beginTransaction();
+        $ownsTransaction = !$this->pdo->inTransaction();
+        if ($ownsTransaction) {
+            $this->pdo->beginTransaction();
+        }
         try {
             $stmt = $this->pdo->prepare('SELECT * FROM challenge_attempts WHERE challenge_code = :code FOR UPDATE');
             $stmt->execute(['code' => $code]);
@@ -581,9 +584,13 @@ final class TrainingRepository
                 'UPDATE challenge_attempts SET status = "completed"
                  WHERE id = :id AND challenger_attempt_id IS NOT NULL AND opponent_attempt_id IS NOT NULL'
             )->execute(['id' => $row['id']]);
-            $this->pdo->commit();
+            if ($ownsTransaction) {
+                $this->pdo->commit();
+            }
         } catch (\Throwable $e) {
-            if ($this->pdo->inTransaction()) $this->pdo->rollBack();
+            if ($ownsTransaction && $this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
             throw $e;
         }
         return $this->getChallenge($code, $userId);
