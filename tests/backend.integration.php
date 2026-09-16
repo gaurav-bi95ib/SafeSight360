@@ -7,8 +7,13 @@ use SafeSight360\Database;
 use SafeSight360\TrainingRepository;
 
 require_once dirname(__DIR__) . '/src/Database.php';
+require_once dirname(__DIR__) . '/src/AuthService.php';
 require_once dirname(__DIR__) . '/src/TrainingRepository.php';
 require_once dirname(__DIR__) . '/src/AttemptService.php';
+
+if (session_status() !== PHP_SESSION_ACTIVE) {
+    session_start();
+}
 
 function expect(bool $condition, string $message): void
 {
@@ -31,6 +36,21 @@ try {
 
     $repository = new TrainingRepository($pdo);
     $service = new AttemptService($repository);
+    $auth = new SafeSight360\AuthService($pdo);
+
+    $authEmail = sprintf('auth-%s@example.test', bin2hex(random_bytes(6)));
+    $registered = $auth->register('QA Auth User', $authEmail, 'QaSecure12345');
+    expect($registered['email'] === $authEmail, 'Signup did not return the registered user.');
+    $currentUser = $auth->currentUser();
+    expect($currentUser !== null && $currentUser['email'] === $authEmail, 'Authenticated session was not restored after signup.');
+    $auth->logout();
+    expect($auth->currentUser() === null, 'Logout did not clear the authenticated session.');
+    if (session_status() !== PHP_SESSION_ACTIVE) {
+        session_start();
+    }
+    $loggedIn = $auth->login($authEmail, 'QaSecure12345');
+    expect($loggedIn['email'] === $authEmail, 'Login did not return the authenticated user.');
+    $authUserId = (int) $loggedIn['id'];
 
     foreach (['warehouse-hazard-hunt', 'manual-handling', 'working-at-height', 'five-whys', 'unsafe-acts', 'cyber-awareness'] as $slug) {
         $bundle = $repository->getActiveBundle($slug);
@@ -84,6 +104,8 @@ try {
     $challengeCode = $repository->createChallenge($userId, 'warehouse-hazard-hunt');
     $ownChallenge = $repository->getChallenge(' ' . strtolower($challengeCode) . ' ', $userId);
     expect($ownChallenge['code'] === $challengeCode, 'Challenge code normalization failed.');
+    $joinedChallenge = $repository->joinChallenge($challengeCode, $authUserId);
+    expect($joinedChallenge['status'] === 'accepted', 'Opponent could not join the challenge.');
     $outsiderStatement = $pdo->prepare(
         "INSERT INTO users (display_name, email, password_hash) VALUES ('Outsider', :email, 'not-used')"
     );
@@ -96,6 +118,38 @@ try {
         $denied = true;
     }
     expect($denied, 'A non-participant could read a private challenge.');
+
+    $warehouse = $repository->getActiveBundle('warehouse-hazard-hunt');
+    $hazardCodes = array_column($warehouse['hazards'], 'code');
+    $answers = [];
+    foreach ($warehouse['questions'] as $question) {
+        foreach ($question['options'] as $option) {
+            $result = $repository->validateAnswer((int) $question['id'], (int) $option['id']);
+            if ($result['correct']) {
+                $answers[(int) $question['id']] = (int) $option['id'];
+                break;
+            }
+        }
+    }
+    $challengerAttempt = $service->complete([
+        'moduleSlug' => 'warehouse-hazard-hunt',
+        'challengeCode' => $challengeCode,
+        'hazardCodes' => $hazardCodes,
+        'wrongClicks' => 0,
+        'elapsedSeconds' => 90,
+        'quizAnswers' => $answers,
+    ], $userId);
+    expect($challengerAttempt['overallPercent'] === 100, 'Challenge challenger score was not calculated.');
+    $opponentAttempt = $service->complete([
+        'moduleSlug' => 'warehouse-hazard-hunt',
+        'challengeCode' => $challengeCode,
+        'hazardCodes' => array_slice($hazardCodes, 0, 7),
+        'wrongClicks' => 1,
+        'elapsedSeconds' => 110,
+        'quizAnswers' => $answers,
+    ], $authUserId);
+    expect(($opponentAttempt['challenge']['status'] ?? '') === 'completed', '1v1 challenge did not complete after both attempts.');
+    expect(($opponentAttempt['challenge']['winner'] ?? '') === 'challenger', '1v1 winner was not resolved correctly.');
 
     $rejected = false;
     try {

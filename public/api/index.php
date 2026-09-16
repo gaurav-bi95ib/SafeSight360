@@ -74,6 +74,7 @@ try {
     }
 
     requireCsrfToken();
+    requireJsonRequest();
     $payload = readJsonBody();
 
     if ($action === 'signup') {

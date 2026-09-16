@@ -30,6 +30,7 @@ Do not place real credentials in the repository. Production must use HTTPS, secu
 - `npm run check:js` performs JavaScript syntax checks.
 - `php -l <file>` can lint each PHP file when PHP is installed locally.
 - `C:\xampp\php\php.exe tests\backend.integration.php` runs rollback-safe database, score-validation, progress and private-challenge integration checks after importing the schema.
+- `powershell -ExecutionPolicy Bypass -File .\scripts\qa-release-check.ps1` runs the Sep 16 QA release gate: JS checks, JS tests, PHP lint, clean MySQL schema import, and backend integration checks.
 
 ## Content replacement
 

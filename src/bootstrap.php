@@ -58,6 +58,14 @@ function requireCsrfToken(): void
     }
 }
 
+function requireJsonRequest(): void
+{
+    $contentType = $_SERVER['CONTENT_TYPE'] ?? '';
+    if (!is_string($contentType) || stripos($contentType, 'application/json') === false) {
+        jsonResponse(['error' => 'Use application/json for this request.'], 415);
+    }
+}
+
 /** @param array<string, mixed> $payload */
 function jsonResponse(array $payload, int $status = 200): void
 {
@@ -66,6 +74,7 @@ function jsonResponse(array $payload, int $status = 200): void
     header('Cache-Control: no-store');
     header('X-Content-Type-Options: nosniff');
     header('Referrer-Policy: no-referrer');
+    header('Permissions-Policy: camera=(), microphone=(), geolocation=()');
     echo json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
     exit;
 }
