@@ -1,3 +1,27 @@
+<?php
+
+declare(strict_types=1);
+
+$scriptName = str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? '/index.php');
+$appBasePath = rtrim(str_replace('\\', '/', dirname($scriptName)), '/.');
+if ($appBasePath === '/' || $appBasePath === '.') {
+    $appBasePath = '';
+}
+
+function publicUrl(string $path): string
+{
+    global $appBasePath;
+    return htmlspecialchars($appBasePath . '/' . ltrim($path, '/'), ENT_QUOTES, 'UTF-8');
+}
+
+function versionedPublicUrl(string $path): string
+{
+    $absolutePath = __DIR__ . '/' . ltrim($path, '/');
+    $version = is_file($absolutePath) ? '?v=' . (string) filemtime($absolutePath) : '';
+    return publicUrl($path) . $version;
+}
+
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -5,26 +29,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="SafeSight360 — Interactive 360° warehouse safety training with gamification, quizzes, and competitive challenges for automotive logistics.">
   <meta name="theme-color" content="#030b14">
+  <meta name="app-base-url" content="<?= htmlspecialchars($appBasePath, ENT_QUOTES, 'UTF-8') ?>">
   <title>SafeSight360 | Interactive Safety Training</title>
-  <script>
-    (() => {
-      const saved = localStorage.getItem('ss360_theme');
-      const theme = saved === 'light' || saved === 'dark'
-        ? saved
-        : (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
-      document.documentElement.dataset.theme = theme;
-    })();
-  </script>
+  <script src="<?= versionedPublicUrl('assets/js/theme-init.js') ?>"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="/assets/css/app.css">
+  <link rel="stylesheet" href="<?= versionedPublicUrl('assets/css/app.css') ?>">
 </head>
 <body>
   <a class="skip-link" href="#main-content">Skip to training content</a>
 
   <!-- ── Site Header ───────────────────────────────────────── -->
   <header class="site-header" id="site-header">
-    <a class="brand" href="/" aria-label="SafeSight360 home">
+    <a class="brand" href="<?= publicUrl('') ?>" aria-label="SafeSight360 home">
       <span class="brand-mark" aria-hidden="true"><span></span></span>
       <span><strong>SafeSight</strong><em>360</em></span>
     </a>
@@ -44,6 +61,7 @@
           <button class="primary-nav-link" id="nav-arena-btn" data-destination="arena" data-tooltip="1v1 Arena" type="button"><span class="nav-icon" aria-hidden="true">⚔</span><span class="nav-label">1v1</span></button>
           <button class="primary-nav-link" id="nav-leaderboard-btn" data-destination="leaderboard" data-tooltip="Leaderboard" type="button"><span class="nav-icon" aria-hidden="true">♛</span><span class="nav-label">Leaders</span></button>
           <button class="primary-nav-link" id="nav-dashboard-btn" data-destination="dashboard" data-tooltip="Dashboard" type="button" aria-label="My progress dashboard"><span class="nav-icon" aria-hidden="true">▦</span><span class="nav-label">Dashboard</span></button>
+          <button class="primary-nav-link admin-only" id="nav-admin-btn" data-destination="admin" data-tooltip="Training management" type="button" hidden><span class="nav-icon" aria-hidden="true">⚙</span><span class="nav-label">Admin</span></button>
         </nav>
         <div class="header-xp-bar" aria-label="XP progress">
           <div class="xp-track">
@@ -112,9 +130,9 @@
       <div class="auth-form-panel">
         <div class="auth-card">
           <!-- Tabs -->
-          <div class="auth-tabs" role="tablist" aria-label="Sign in or create account">
+          <div class="auth-tabs" role="tablist" aria-label="Sign in or request access">
             <button class="auth-tab is-active" id="tab-login" role="tab" aria-selected="true" aria-controls="panel-login" type="button">Sign in</button>
-            <button class="auth-tab" id="tab-signup" role="tab" aria-selected="false" aria-controls="panel-signup" type="button">Create account</button>
+            <button class="auth-tab" id="tab-signup" role="tab" aria-selected="false" aria-controls="panel-signup" type="button">Request access</button>
           </div>
 
           <!-- Login panel -->
@@ -124,7 +142,7 @@
             <form id="login-form" novalidate>
               <div class="form-group">
                 <label class="form-label" for="login-email">Email address</label>
-                <input class="form-input" id="login-email" name="email" type="email" autocomplete="email" required placeholder="you@company.com">
+                <input class="form-input" id="login-email" name="email" type="email" autocomplete="email" required pattern="[A-Za-z0-9.!#$%&amp;'*+/=?^_`{|}~-]+@safesight360\.com" placeholder="amit@safesight360.com">
               </div>
               <div class="form-group">
                 <label class="form-label" for="login-password">Password</label>
@@ -134,16 +152,16 @@
                 <span aria-hidden="true">⚠</span>
                 <span id="login-error-msg">An error occurred.</span>
               </div>
+              <div id="login-notice" class="form-success" role="status" hidden></div>
               <button class="button button-primary button-large auth-submit" id="login-submit" type="submit">Sign in →</button>
             </form>
-            <div class="auth-divider">or</div>
-            <button class="button button-ghost auth-guest-btn" id="guest-btn" type="button">Continue as guest (results won't be saved)</button>
+            <p class="auth-access-note">Training access is available only to administrator-approved SafeSight360 accounts.</p>
           </div>
 
           <!-- Signup panel -->
           <div id="panel-signup" role="tabpanel" aria-labelledby="tab-signup" hidden>
-            <h2 class="auth-form-title">Join SafeSight360</h2>
-            <p class="auth-form-sub">Create your account to track progress and compete.</p>
+            <h2 class="auth-form-title">Request training access</h2>
+            <p class="auth-form-sub">Submit your organisational details. An administrator must approve your request before you can sign in.</p>
             <form id="signup-form" novalidate>
               <div class="form-group">
                 <label class="form-label" for="signup-name">Your name</label>
@@ -151,7 +169,8 @@
               </div>
               <div class="form-group">
                 <label class="form-label" for="signup-email">Email address</label>
-                <input class="form-input" id="signup-email" name="email" type="email" autocomplete="email" required placeholder="you@company.com">
+                <input class="form-input" id="signup-email" name="email" type="email" autocomplete="email" required pattern="[A-Za-z0-9.!#$%&amp;'*+/=?^_`{|}~-]+@safesight360\.com" placeholder="amit@safesight360.com">
+                <p class="auth-password-hint">Only @safesight360.com addresses are accepted.</p>
               </div>
               <div class="form-group">
                 <label class="form-label" for="signup-password">Password</label>
@@ -162,7 +181,7 @@
                 <span aria-hidden="true">⚠</span>
                 <span id="signup-error-msg">An error occurred.</span>
               </div>
-              <button class="button button-primary button-large auth-submit" id="signup-submit" type="submit">Create account →</button>
+              <button class="button button-primary button-large auth-submit" id="signup-submit" type="submit">Submit request →</button>
             </form>
           </div>
         </div>
@@ -278,10 +297,9 @@
           <div class="hud-item"><span>Time</span><strong id="timer-value">02:00</strong></div>
           <div class="hud-item">
             <span>Hazards</span>
-            <strong><span id="hazards-found">0</span>/8</strong>
+            <strong><span id="hazards-found">0</span>/<span id="hazards-total">8</span></strong>
           </div>
           <div class="hud-item"><span>Score</span><strong id="score-value">0</strong></div>
-           <div class="hud" role="group" aria-label="Challenge status">
         </div>
       </div>
       <progress id="time-progress" class="time-progress" value="120" max="120"><span>120 seconds remaining</span></progress>
@@ -321,7 +339,7 @@
         <h3>✅ Root Cause Identified</h3>
         <p id="root-cause-text"></p>
         <p id="root-cause-prevention" style="margin-top: 10px; color: var(--ink-soft);"></p>
-        <button class="button button-primary" id="fivewhys-to-quiz" type="button" style="margin-top: 20px;">Continue to Knowledge Check →</button>
+        <button class="button button-primary" id="fivewhys-to-quiz" type="button" style="margin-top: 20px;">Finish module →</button>
       </div>
       <div id="fivewhys-score-bar" style="margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--glass-border);">
         <span style="color: var(--ink-soft); font-size: 0.85rem;">Score: <strong id="fivewhys-score" style="color: var(--orange);">0</strong> / 100</span>
@@ -422,6 +440,7 @@
         <button class="button button-primary" id="review-mistakes" type="button">Review safety content</button>
         <button class="button button-secondary" id="retry-training" type="button">Retry training</button>
         <button class="button button-secondary" id="results-leaderboard-btn" type="button">🏆 Leaderboard</button>
+        <button class="button button-secondary" id="back-to-hub" type="button">Back to training</button>
         <button class="button button-text" id="clear-best" type="button">Clear best performance</button>
       </div>
       <p id="persistence-note" class="persistence-note">Results indicate training performance only and are not formal safety certification.</p>
@@ -545,6 +564,138 @@
       </div>
     </section>
 
+    <!-- Training management dashboard (administrator only) -->
+    <section class="screen admin-screen" data-screen="admin" aria-labelledby="admin-title" hidden>
+      <div class="admin-heading">
+        <div>
+          <p class="eyebrow">Role-protected workspace</p>
+          <h1 id="admin-title">Training management</h1>
+          <p>Manage learner access, assignments, completion progress and verified results.</p>
+        </div>
+        <div class="admin-heading-actions">
+          <button class="button button-ghost" id="admin-refresh-btn" type="button">Refresh</button>
+          <button class="button button-primary" id="admin-add-learner-btn" type="button">Add learner</button>
+        </div>
+      </div>
+
+      <div class="admin-metrics" role="list" aria-label="Training management statistics">
+        <article class="admin-metric" role="listitem"><span id="admin-active-learners">0</span><p>Active learners</p></article>
+        <article class="admin-metric" role="listitem"><span id="admin-pending-requests">0</span><p>Pending requests</p></article>
+        <article class="admin-metric" role="listitem"><span id="admin-total-assignments">0</span><p>Assignments</p></article>
+        <article class="admin-metric" role="listitem"><span id="admin-in-progress">0</span><p>In progress</p></article>
+        <article class="admin-metric admin-metric-accent" role="listitem"><span id="admin-completion-rate">0%</span><p>Completion rate</p></article>
+      </div>
+
+      <section class="admin-panel admin-request-panel" aria-labelledby="admin-requests-title">
+        <div class="admin-panel-heading">
+          <div><p class="eyebrow">Controlled onboarding</p><h2 id="admin-requests-title">Access requests</h2></div>
+          <span class="admin-panel-hint">Only approved organisational accounts can sign in.</span>
+        </div>
+        <div class="admin-table-wrap">
+          <table class="attempts-table admin-table" aria-label="Access requests">
+            <thead><tr><th>Applicant</th><th>Requested</th><th>Status</th><th>Reviewed by</th><th>Actions</th></tr></thead>
+            <tbody id="admin-requests-table"><tr><td colspan="5" class="admin-empty">Loading access requests…</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
+      <div class="admin-layout">
+        <section class="admin-panel admin-learners-panel" aria-labelledby="admin-learners-title">
+          <div class="admin-panel-heading">
+            <div><p class="eyebrow">People</p><h2 id="admin-learners-title">Learner management</h2></div>
+            <label class="admin-search"><span class="sr-only">Search learners</span><input class="form-input" id="admin-learner-search" type="search" maxlength="100" placeholder="Search name or email"></label>
+          </div>
+          <div class="admin-table-wrap">
+            <table class="attempts-table admin-table" aria-label="Learners">
+              <thead><tr><th>Learner</th><th>Status</th><th>Progress</th><th>Best</th><th>Last login</th><th>Actions</th></tr></thead>
+              <tbody id="admin-learners-table"><tr><td colspan="6" class="admin-empty">Loading learners…</td></tr></tbody>
+            </table>
+          </div>
+        </section>
+
+        <aside class="admin-panel admin-assignment-panel" aria-labelledby="admin-assignment-title">
+          <p class="eyebrow">Assign training</p>
+          <h2 id="admin-assignment-title">New assignment</h2>
+          <p>Select an active learner and one or more existing modules.</p>
+          <form id="admin-assignment-form">
+            <label class="form-label" for="admin-assignment-learner">Learner</label>
+            <select class="form-input" id="admin-assignment-learner" required><option value="">Select learner</option></select>
+            <fieldset class="admin-module-fieldset">
+              <legend>Training modules</legend>
+              <div id="admin-module-options" class="admin-module-options"><p>Loading modules…</p></div>
+            </fieldset>
+            <button class="button button-primary" id="admin-assign-btn" type="submit">Assign selected training</button>
+            <p class="admin-form-message" id="admin-assignment-message" role="status" hidden></p>
+          </form>
+        </aside>
+      </div>
+
+      <section class="admin-panel admin-module-panel" aria-labelledby="admin-module-title">
+        <div class="admin-panel-heading"><div><p class="eyebrow">Portfolio</p><h2 id="admin-module-title">Module completion</h2></div></div>
+        <div id="admin-module-summary" class="admin-module-summary"><p class="admin-empty">Loading module statistics…</p></div>
+      </section>
+
+      <section class="admin-panel admin-content-panel" aria-labelledby="admin-content-title">
+        <div class="admin-panel-heading">
+          <div><p class="eyebrow">Protected content studio</p><h2 id="admin-content-title">Training content and 360° editor</h2></div>
+          <label class="admin-content-select"><span class="form-label">Module</span><select class="form-input" id="admin-content-module"><option value="">Select a module</option></select></label>
+        </div>
+        <p class="admin-panel-hint">Update learner-facing copy, panorama source and starting view, hazard hotspots, and knowledge-check questions. Changes are validated and saved server-side.</p>
+        <form id="admin-content-form" hidden>
+          <div class="admin-content-grid">
+            <label><span class="form-label">Module title</span><input class="form-input" id="admin-content-title-input" maxlength="160" required></label>
+            <label><span class="form-label">Duration (seconds)</span><input class="form-input" id="admin-content-duration" type="number" min="30" max="3600" required></label>
+            <label class="admin-field-wide"><span class="form-label">Summary</span><textarea class="form-input admin-textarea" id="admin-content-summary" maxlength="3000" required></textarea></label>
+            <label class="admin-field-wide"><span class="form-label">Mission</span><textarea class="form-input admin-textarea" id="admin-content-mission" maxlength="3000" required></textarea></label>
+          </div>
+
+          <fieldset class="admin-content-fieldset" id="admin-panorama-settings">
+            <legend>360° panorama and initial camera</legend>
+            <div class="admin-content-grid">
+              <label class="admin-field-wide"><span class="form-label">Panorama asset path</span><input class="form-input" id="admin-content-panorama" maxlength="255"></label>
+              <div class="admin-field-wide admin-upload-control">
+                <label><span class="form-label">Upload a new 2:1 panorama</span><input class="form-input" id="admin-panorama-file" type="file" accept="image/jpeg,image/png,image/webp"></label>
+                <button class="button button-secondary" id="admin-upload-panorama" type="button">Upload panorama</button>
+                <p class="admin-panel-hint" id="admin-upload-message">JPEG, PNG or WebP · at least 2048×1024 · maximum 25 MB.</p>
+              </div>
+              <label><span class="form-label">Image width</span><input class="form-input" id="admin-content-width" type="number" min="512" max="32768"></label>
+              <label><span class="form-label">Initial yaw</span><input class="form-input" id="admin-content-yaw" type="number" min="-3.142" max="3.142" step="0.001"></label>
+              <label><span class="form-label">Initial pitch</span><input class="form-input" id="admin-content-pitch" type="number" min="-1.571" max="1.571" step="0.001"></label>
+              <label><span class="form-label">Initial field of view</span><input class="form-input" id="admin-content-fov" type="number" min="0.5" max="3.142" step="0.001"></label>
+            </div>
+          </fieldset>
+
+          <section class="admin-editor-section" id="admin-hotspot-section">
+            <div class="admin-editor-heading"><div><p class="eyebrow">Interactive 360° markers</p><h3>Hazard hotspots</h3></div><button class="button button-secondary button-sm" id="admin-add-hotspot" type="button">Add hotspot</button></div>
+            <div id="admin-hotspot-list" class="admin-editor-list"></div>
+          </section>
+
+          <section class="admin-editor-section" id="admin-question-section">
+            <div class="admin-editor-heading"><div><p class="eyebrow">Knowledge validation</p><h3>MCQ questions</h3></div><button class="button button-secondary button-sm" id="admin-add-question" type="button">Add question</button></div>
+            <div id="admin-question-list" class="admin-editor-list"></div>
+          </section>
+
+          <div class="admin-content-actions">
+            <p class="admin-form-message" id="admin-content-message" role="status" hidden></p>
+            <button class="button button-primary" id="admin-save-content" type="submit">Save module content</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="admin-panel admin-report-panel" aria-labelledby="admin-report-title">
+        <div class="admin-panel-heading">
+          <div><p class="eyebrow">Verified results</p><h2 id="admin-report-title">Learner performance report</h2></div>
+          <label><span class="sr-only">Filter results by learner</span><select class="form-input" id="admin-report-filter"><option value="">All learners</option></select></label>
+        </div>
+        <div class="admin-table-wrap">
+          <table class="attempts-table admin-table" aria-label="Learner performance results">
+            <thead><tr><th>Completed</th><th>Learner</th><th>Module</th><th>Score</th><th>Rating</th><th>XP</th></tr></thead>
+            <tbody id="admin-reports-table"><tr><td colspan="6" class="admin-empty">Loading results…</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+
     <!-- ══════════════════════════════════════════════════════
          LEADERBOARD SCREEN
          ══════════════════════════════════════════════════════ -->
@@ -628,14 +779,32 @@
     <button class="button button-primary" id="continue-challenge" type="button">Continue inspection →</button>
   </dialog>
 
+  <dialog id="admin-learner-dialog" class="feedback-dialog admin-dialog" aria-labelledby="admin-dialog-title">
+    <p class="eyebrow">Learner account</p>
+    <h2 id="admin-dialog-title">Add learner</h2>
+    <form id="admin-learner-form">
+      <input id="admin-learner-id" type="hidden">
+      <label class="form-label" for="admin-learner-name">Full name</label>
+      <input class="form-input" id="admin-learner-name" name="displayName" minlength="2" maxlength="80" autocomplete="name" required>
+      <label class="form-label" for="admin-learner-email">Email address</label>
+      <input class="form-input" id="admin-learner-email" name="email" type="email" maxlength="190" autocomplete="email" required pattern="[A-Za-z0-9.!#$%&amp;'*+/=?^_`{|}~-]+@safesight360\.com" placeholder="amit@safesight360.com">
+      <label class="form-label" for="admin-learner-password">Password <span id="admin-password-help">(required)</span></label>
+      <input class="form-input" id="admin-learner-password" name="password" type="password" minlength="12" maxlength="72" autocomplete="new-password">
+      <p class="form-hint">Use 12–72 characters with uppercase, lowercase and a number.</p>
+      <label class="form-label" for="admin-learner-status">Account status</label>
+      <select class="form-input" id="admin-learner-status"><option value="active">Active</option><option value="inactive">Inactive</option></select>
+      <p class="admin-form-message" id="admin-learner-message" role="alert" hidden></p>
+      <div class="admin-dialog-actions">
+        <button class="button button-ghost" id="admin-dialog-cancel" type="button">Cancel</button>
+        <button class="button button-primary" id="admin-save-learner" type="submit">Save learner</button>
+      </div>
+    </form>
+  </dialog>
+
   <!-- ── Live status (screen reader announcements) ─────────── -->
   <div id="live-status" role="status" aria-live="polite" aria-atomic="true"></div>
 
-  <script src="/vendor/marzipano/marzipano.js"></script>
-  <script type="module" src="/assets/js/gamification.js"></script>
-  <script type="module" src="/assets/js/modules.js"></script>
-  <script type="module" src="/assets/js/five-whys-engine.js"></script>
-  <script type="module" src="/assets/js/cyber-engine.js"></script>
-  <script type="module" src="/assets/js/app.js"></script>
+  <script src="<?= versionedPublicUrl('vendor/marzipano/marzipano.js') ?>"></script>
+  <script type="module" src="<?= versionedPublicUrl('assets/js/app.js') ?>"></script>
 </body>
 </html>

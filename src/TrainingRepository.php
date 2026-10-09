@@ -17,8 +17,22 @@ final class TrainingRepository
     /** @return array<string, mixed> */
     public function getActiveBundle(string $slug = 'warehouse-hazard-hunt'): array
     {
+        return $this->publicBundle($this->getEditableBundle($slug));
+    }
+
+    /** @return array<string, mixed> */
+    public function getEditableBundle(string $slug = 'warehouse-hazard-hunt'): array
+    {
         $scenario = $this->activeScenario($slug);
         $trainingId = (int) $scenario['id'];
+
+        if (isset($scenario['content_json']) && is_string($scenario['content_json']) && $scenario['content_json'] !== '') {
+            $override = json_decode($scenario['content_json'], true);
+            if (is_array($override) && isset($override['scenario'], $override['hazards'], $override['questions'])) {
+                $override['scenario'] = $this->mergeScenarioMetadata($override['scenario'], $scenario);
+                return $override;
+            }
+        }
 
         $fallback = $this->fallbackBundle($slug);
         if ($fallback !== null && $slug !== 'warehouse-hazard-hunt') {
@@ -35,7 +49,7 @@ final class TrainingRepository
         $hazardStatement->execute(['training_id' => $trainingId]);
 
         $questionStatement = $this->pdo->prepare(
-            'SELECT id, code, prompt
+            'SELECT id, code, prompt, explanation
              FROM quiz_questions
              WHERE training_version_id = :training_id
              ORDER BY display_order'
@@ -44,7 +58,7 @@ final class TrainingRepository
         $questions = $questionStatement->fetchAll();
 
         $optionStatement = $this->pdo->prepare(
-            'SELECT id, question_id, label
+            'SELECT id, question_id, label, is_correct
              FROM quiz_options
              WHERE question_id IN (
                  SELECT id FROM quiz_questions WHERE training_version_id = :training_id
@@ -53,11 +67,15 @@ final class TrainingRepository
         );
         $optionStatement->execute(['training_id' => $trainingId]);
         $optionsByQuestion = [];
+        $correctByQuestion = [];
         foreach ($optionStatement->fetchAll() as $option) {
             $optionsByQuestion[(int) $option['question_id']][] = [
                 'id' => (int) $option['id'],
                 'label' => $option['label'],
             ];
+            if ((bool) $option['is_correct']) {
+                $correctByQuestion[(int) $option['question_id']] = (int) $option['id'];
+            }
         }
 
         return [
@@ -105,9 +123,21 @@ final class TrainingRepository
                 'id' => (int) $question['id'],
                 'code' => $question['code'],
                 'prompt' => $question['prompt'],
+                'correctOptionId' => $correctByQuestion[(int) $question['id']] ?? 0,
+                'explanation' => $question['explanation'],
                 'options' => $optionsByQuestion[(int) $question['id']] ?? [],
             ], $questions),
         ];
+    }
+
+    /** @param array<string, mixed> $bundle @return array<string, mixed> */
+    private function publicBundle(array $bundle): array
+    {
+        $bundle['questions'] = array_map(static function (array $question): array {
+            unset($question['correctOptionId'], $question['correctIndex'], $question['explanation']);
+            return $question;
+        }, is_array($bundle['questions'] ?? null) ? $bundle['questions'] : []);
+        return $bundle;
     }
 
     /**
@@ -146,29 +176,69 @@ final class TrainingRepository
     /** @return array{correct: bool, correctOptionId: int, explanation: string} */
     public function validateAnswer(int $questionId, int $optionId): array
     {
-        $statement = $this->pdo->prepare(
-            'SELECT q.explanation, o.id AS selected_id, o.is_correct,
-                    (SELECT id FROM quiz_options WHERE question_id = q.id AND is_correct = TRUE LIMIT 1) AS correct_option_id
-             FROM quiz_questions q
-             JOIN training_versions t ON t.id = q.training_version_id AND t.is_active = TRUE
-             JOIN quiz_options o ON o.question_id = q.id AND o.id = :option_id
-             WHERE q.id = :question_id
-             LIMIT 1'
-        );
-        $statement->execute([
-            'question_id' => $questionId,
-            'option_id' => $optionId,
-        ]);
-        $answer = $statement->fetch();
-        if (!$answer) {
-            throw new InvalidArgumentException('The selected question or option is not valid.');
-        }
+        return $this->validateAnswerForModule('warehouse-hazard-hunt', $questionId, $optionId);
+    }
 
-        return [
-            'correct' => (bool) $answer['is_correct'],
-            'correctOptionId' => (int) $answer['correct_option_id'],
-            'explanation' => $answer['explanation'],
-        ];
+    /** @return array{correct: bool, correctOptionId: int, explanation: string} */
+    public function validateAnswerForModule(string $slug, int $questionId, int $optionId): array
+    {
+        $bundle = $this->getEditableBundle($slug);
+        foreach ($bundle['questions'] ?? [] as $question) {
+            if ((int) ($question['id'] ?? 0) !== $questionId) continue;
+            $validOption = false;
+            foreach ($question['options'] ?? [] as $option) {
+                if ((int) ($option['id'] ?? 0) === $optionId) {
+                    $validOption = true;
+                    break;
+                }
+            }
+            $correctOptionId = (int) ($question['correctOptionId'] ?? 0);
+            if (!$validOption || $correctOptionId < 1) break;
+            return [
+                'correct' => $optionId === $correctOptionId,
+                'correctOptionId' => $correctOptionId,
+                'explanation' => (string) ($question['explanation'] ?? 'Review the approved training guidance.'),
+            ];
+        }
+        throw new InvalidArgumentException('The selected question or option is not valid.');
+    }
+
+    public function assertTrainingAssigned(int $userId, string $slug): void
+    {
+        $statement = $this->pdo->prepare(
+            "SELECT 1
+             FROM training_assignments ta
+             JOIN training_versions t ON t.id = ta.training_version_id AND t.is_active = TRUE
+             JOIN users u ON u.id = ta.user_id AND u.account_status = 'active'
+             WHERE ta.user_id = :user_id AND t.slug = :slug
+             LIMIT 1"
+        );
+        $statement->execute(['user_id' => $userId, 'slug' => $slug]);
+        if (!$statement->fetchColumn()) {
+            throw new InvalidArgumentException('This training module has not been assigned to your account.');
+        }
+    }
+
+    public function markTrainingStarted(int $userId, string $slug): void
+    {
+        $this->assertTrainingAssigned($userId, $slug);
+        $statement = $this->pdo->prepare(
+            "UPDATE training_assignments ta
+             JOIN training_versions t ON t.id = ta.training_version_id
+             SET ta.status = CASE WHEN ta.status = 'completed' THEN 'completed' ELSE 'in_progress' END,
+                 ta.started_at = COALESCE(ta.started_at, CURRENT_TIMESTAMP)
+             WHERE ta.user_id = :user_id AND t.slug = :slug"
+        );
+        $statement->execute(['user_id' => $userId, 'slug' => $slug]);
+    }
+
+    public function assertQuestionAssigned(int $userId, string $slug, int $questionId): void
+    {
+        $this->assertTrainingAssigned($userId, $slug);
+        foreach ($this->getEditableBundle($slug)['questions'] ?? [] as $question) {
+            if ((int) ($question['id'] ?? 0) === $questionId) return;
+        }
+        throw new InvalidArgumentException('This question is not part of your assigned training.');
     }
 
     /** @return array<string, mixed> */
@@ -176,54 +246,24 @@ final class TrainingRepository
     {
         $scenario = $this->activeScenario($slug);
         $trainingId = (int) $scenario['id'];
-
-        $fallback = $this->fallbackBundle($slug);
-        if ($fallback !== null && $slug !== 'warehouse-hazard-hunt') {
-            $answers = [];
-            foreach ($fallback['questions'] ?? [] as $question) {
-                if (isset($question['id'], $question['correctOptionId'])) {
-                    $answers[(int) $question['id']] = (int) $question['correctOptionId'];
-                }
-            }
-            return [
-                'trainingId' => $trainingId,
-                'durationSeconds' => (int) ($fallback['scenario']['durationSeconds'] ?? 120),
-                'maxHazards' => (int) ($fallback['scenario']['maxHazards'] ?? count($fallback['hazards'] ?? [])),
-                'correctPoints' => (int) ($fallback['scenario']['correctPoints'] ?? 100),
-                'wrongPenalty' => (int) ($fallback['scenario']['wrongPenalty'] ?? 20),
-                'scoringFormulaVersion' => $fallback['scenario']['scoringFormulaVersion'] ?? 'scoring-v1',
-                'moduleType' => $scenario['module_type'],
-                'hazardCodes' => array_column($fallback['hazards'] ?? [], 'code'),
-                'correctAnswers' => $answers,
-            ];
-        }
-
-        $hazardStatement = $this->pdo->prepare(
-            'SELECT code FROM hazards WHERE training_version_id = :training_id ORDER BY display_order'
-        );
-        $hazardStatement->execute(['training_id' => $trainingId]);
-
-        $answerStatement = $this->pdo->prepare(
-            'SELECT q.id AS question_id, o.id AS correct_option_id
-             FROM quiz_questions q
-             JOIN quiz_options o ON o.question_id = q.id AND o.is_correct = TRUE
-             WHERE q.training_version_id = :training_id'
-        );
-        $answerStatement->execute(['training_id' => $trainingId]);
+        $bundle = $this->getEditableBundle($slug);
         $correctAnswers = [];
-        foreach ($answerStatement->fetchAll() as $row) {
-            $correctAnswers[(int) $row['question_id']] = (int) $row['correct_option_id'];
+        foreach ($bundle['questions'] ?? [] as $question) {
+            if (isset($question['id'], $question['correctOptionId'])) {
+                $correctAnswers[(int) $question['id']] = (int) $question['correctOptionId'];
+            }
         }
+        $effectiveScenario = $bundle['scenario'] ?? [];
 
         return [
             'trainingId' => $trainingId,
-            'durationSeconds' => (int) $scenario['duration_seconds'],
-            'maxHazards' => (int) $scenario['max_hazards'],
-            'correctPoints' => (int) $scenario['correct_points'],
-            'wrongPenalty' => (int) $scenario['wrong_penalty'],
-            'scoringFormulaVersion' => $scenario['scoring_formula_version'],
+            'durationSeconds' => (int) ($effectiveScenario['durationSeconds'] ?? $scenario['duration_seconds']),
+            'maxHazards' => (int) ($effectiveScenario['maxHazards'] ?? count($bundle['hazards'] ?? [])),
+            'correctPoints' => (int) ($effectiveScenario['correctPoints'] ?? $scenario['correct_points']),
+            'wrongPenalty' => (int) ($effectiveScenario['wrongPenalty'] ?? $scenario['wrong_penalty']),
+            'scoringFormulaVersion' => $effectiveScenario['scoringFormulaVersion'] ?? $scenario['scoring_formula_version'],
             'moduleType' => $scenario['module_type'],
-            'hazardCodes' => array_column($hazardStatement->fetchAll(), 'code'),
+            'hazardCodes' => array_column($bundle['hazards'] ?? [], 'code'),
             'correctAnswers' => $correctAnswers,
         ];
     }
@@ -265,6 +305,18 @@ final class TrainingRepository
         ]);
         
         $attemptId = (int) $this->pdo->lastInsertId();
+
+        $assignmentStatement = $this->pdo->prepare(
+            "UPDATE training_assignments
+             SET status = 'completed',
+                 started_at = COALESCE(started_at, CURRENT_TIMESTAMP),
+                 completed_at = COALESCE(completed_at, CURRENT_TIMESTAMP)
+             WHERE user_id = :user_id AND training_version_id = :training_id"
+        );
+        $assignmentStatement->execute([
+            'user_id' => $result['userId'],
+            'training_id' => $result['trainingId'],
+        ]);
 
         // Update user XP
         if ($result['userId']) {
@@ -448,11 +500,16 @@ final class TrainingRepository
     public function getUserModuleProgress(int $userId): array
     {
         $stmt = $this->pdo->prepare(
-            'SELECT t.slug, MAX(a.overall_percent) as best_score, a.rating
-             FROM attempts a
-             JOIN training_versions t ON t.id = a.training_version_id
-             WHERE a.user_id = :uid
-             GROUP BY t.slug, a.rating'
+            "SELECT t.slug, ta.status, MAX(a.overall_percent) AS best_score,
+                    SUBSTRING_INDEX(
+                        GROUP_CONCAT(a.rating ORDER BY a.overall_percent DESC, a.completed_at DESC),
+                        ',', 1
+                    ) AS rating
+             FROM training_assignments ta
+             JOIN training_versions t ON t.id = ta.training_version_id AND t.is_active = TRUE
+             LEFT JOIN attempts a ON a.user_id = ta.user_id AND a.training_version_id = ta.training_version_id
+             WHERE ta.user_id = :uid
+             GROUP BY t.slug, ta.status"
         );
         $stmt->execute(['uid' => $userId]);
         
@@ -460,18 +517,28 @@ final class TrainingRepository
         $progress = [];
         foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
             $slug = $row['slug'];
-            if (!isset($progress[$slug]) || $row['best_score'] > $progress[$slug]['best_score']) {
-                $progress[$slug] = [
-                    'best_score' => (int) $row['best_score'],
-                    'rating' => $row['rating']
-                ];
-            }
+            $progress[$slug] = [
+                'best_score' => $row['best_score'] === null ? null : (int) $row['best_score'],
+                'bestPercent' => $row['best_score'] === null ? null : (int) $row['best_score'],
+                'rating' => $row['rating'] ?? self::assignmentStatusLabel($row['status']),
+                'status' => $row['status'],
+            ];
         }
         return $progress;
     }
 
+    private static function assignmentStatusLabel(string $status): string
+    {
+        return match ($status) {
+            'in_progress' => 'In Progress',
+            'completed' => 'Completed',
+            default => 'Not Started',
+        };
+    }
+
     public function createChallenge(int $userId, string $moduleSlug): string
     {
+        $this->assertTrainingAssigned($userId, $moduleSlug);
         $scenario = $this->activeScenario($moduleSlug);
         $code = strtoupper(substr(bin2hex(random_bytes(4)), 0, 8));
         
@@ -546,9 +613,19 @@ final class TrainingRepository
         $stmt = $this->pdo->prepare(
             'UPDATE challenge_attempts SET opponent_id = :uid, status = "accepted"
              WHERE challenge_code = :code AND challenger_id <> :challenger_uid
-               AND opponent_id IS NULL AND status = "pending"'
+               AND opponent_id IS NULL AND status = "pending"
+               AND EXISTS (
+                   SELECT 1 FROM training_assignments ta
+                   WHERE ta.user_id = :assigned_uid
+                     AND ta.training_version_id = challenge_attempts.training_version_id
+               )'
         );
-        $stmt->execute(['uid' => $userId, 'challenger_uid' => $userId, 'code' => $code]);
+        $stmt->execute([
+            'uid' => $userId,
+            'challenger_uid' => $userId,
+            'assigned_uid' => $userId,
+            'code' => $code,
+        ]);
         if ($stmt->rowCount() !== 1) {
             throw new InvalidArgumentException('This challenge is unavailable, already joined, or belongs to you.');
         }

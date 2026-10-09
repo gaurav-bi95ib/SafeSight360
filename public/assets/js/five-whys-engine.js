@@ -89,6 +89,14 @@ export function initFiveWhys(onComplete) {
   onCompleteCallback = onComplete;
   startedAt = performance.now();
 
+  const reveal = document.getElementById('root-cause-reveal');
+  const toQuizBtn = document.getElementById('fivewhys-to-quiz');
+  if (reveal) reveal.hidden = true;
+  if (toQuizBtn) {
+    toQuizBtn.onclick = null;
+    toQuizBtn.textContent = 'Finish module →';
+  }
+
   renderIncident();
   renderChain();
   updateScore();
@@ -236,7 +244,10 @@ function completeModule() {
   // Wire "Continue to quiz" button
   const toQuizBtn = document.getElementById('fivewhys-to-quiz');
   if (toQuizBtn && onCompleteCallback) {
-    toQuizBtn.addEventListener('click', () => onCompleteCallback(result), { once: true });
+    toQuizBtn.onclick = () => {
+      toQuizBtn.onclick = null;
+      onCompleteCallback(result);
+    };
   }
 }
 
