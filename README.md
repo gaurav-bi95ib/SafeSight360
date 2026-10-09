@@ -12,6 +12,25 @@ powershell -ExecutionPolicy Bypass -File .\scripts\start-xampp-dev.ps1
 
 Then open `http://127.0.0.1:8080`. The launcher creates/imports the `safesight360` database idempotently and serves only the `public/` directory. Press `Ctrl+C` to stop it. If the local database account has a password, provide `-DatabasePassword 'your-local-password'`.
 
+## Administrator access
+
+Direct public account creation is disabled. A learner submits the **Request access** form using an address ending in `@safesight360.com`; the password is hashed immediately and no session or user account is created. An administrator must approve the pending request before the learner can sign in.
+
+To create the first administrator securely:
+
+1. Set a strong password in the `SAFESIGHT_ADMIN_PASSWORD` environment variable.
+2. From the project directory, run the administrator command with an organisational email:
+
+```powershell
+$env:SAFESIGHT_ADMIN_PASSWORD = 'replace-with-a-strong-private-password'
+C:\xampp\php\php.exe .\scripts\manage-admin.php admin@safesight360.com "Administrator Name"
+Remove-Item Env:SAFESIGHT_ADMIN_PASSWORD
+```
+
+3. Sign in with the administrator account. It opens the role-protected Training Management dashboard.
+
+Administrators can approve or reject access requests; add, edit, view and deactivate learners; assign existing modules; monitor Not Started, In Progress and Completed states; and review saved scores and completion history. The protected content studio also manages module copy, validated high-resolution 2:1 panorama uploads, initial 360-degree camera settings, hotspot coordinates and feedback, and MCQ questions, options, correct answers and explanations. Learner sessions receive HTTP 403 from every admin endpoint.
+
 ## Server requirements
 
 1. Use PHP 8.0 or newer with PDO MySQL and MySQL/MariaDB.
@@ -26,7 +45,7 @@ Do not place real credentials in the repository. Production must use HTTPS, secu
 
 ## Development checks
 
-- `npm test` runs the deterministic scoring and rating boundary tests.
+- `npm test` runs scoring, DOM contracts, role/security, panorama and content tests.
 - `npm run check:js` performs JavaScript syntax checks.
 - `php -l <file>` can lint each PHP file when PHP is installed locally.
 - `C:\xampp\php\php.exe tests\backend.integration.php` runs rollback-safe database, score-validation, progress and private-challenge integration checks after importing the schema.

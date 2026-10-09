@@ -2,6 +2,8 @@
 .idea/
 .vscode/
 coverage/
+evidence/
+public/assets/panorama/uploads/
 *.log
 .qa_*/
 marzipano-*.tgz

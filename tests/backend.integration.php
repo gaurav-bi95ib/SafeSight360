@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use SafeSight360\AttemptService;
+use SafeSight360\AdminService;
 use SafeSight360\Database;
 use SafeSight360\TrainingRepository;
 
@@ -10,6 +11,7 @@ require_once dirname(__DIR__) . '/src/Database.php';
 require_once dirname(__DIR__) . '/src/AuthService.php';
 require_once dirname(__DIR__) . '/src/TrainingRepository.php';
 require_once dirname(__DIR__) . '/src/AttemptService.php';
+require_once dirname(__DIR__) . '/src/AdminService.php';
 
 if (session_status() !== PHP_SESSION_ACTIVE) {
     session_start();
@@ -26,31 +28,77 @@ $pdo = Database::connect();
 $pdo->beginTransaction();
 
 try {
-    $email = sprintf('integration-%s@example.test', bin2hex(random_bytes(6)));
+    $email = sprintf('integration-%s@safesight360.com', bin2hex(random_bytes(6)));
     $userStatement = $pdo->prepare(
         "INSERT INTO users (display_name, email, password_hash, login_streak, last_activity_date)
          VALUES ('Integration Test', :email, 'not-used', 1, CURDATE())"
     );
     $userStatement->execute(['email' => $email]);
     $userId = (int) $pdo->lastInsertId();
+    $pdo->prepare(
+        "INSERT INTO training_assignments (user_id, training_version_id, status)
+         SELECT :user_id, id, 'not_started' FROM training_versions WHERE is_active = TRUE"
+    )->execute(['user_id' => $userId]);
 
     $repository = new TrainingRepository($pdo);
     $service = new AttemptService($repository);
     $auth = new SafeSight360\AuthService($pdo);
 
-    $authEmail = sprintf('auth-%s@example.test', bin2hex(random_bytes(6)));
-    $registered = $auth->register('QA Auth User', $authEmail, 'QaSecure12345');
-    expect($registered['email'] === $authEmail, 'Signup did not return the registered user.');
-    $currentUser = $auth->currentUser();
-    expect($currentUser !== null && $currentUser['email'] === $authEmail, 'Authenticated session was not restored after signup.');
-    $auth->logout();
-    expect($auth->currentUser() === null, 'Logout did not clear the authenticated session.');
-    if (session_status() !== PHP_SESSION_ACTIVE) {
-        session_start();
+    $adminStatement = $pdo->prepare(
+        "INSERT INTO users (display_name, email, password_hash, role, account_status)
+         VALUES ('QA Administrator', :email, 'not-used', 'admin', 'active')"
+    );
+    $adminStatement->execute(['email' => 'admin-' . bin2hex(random_bytes(6)) . '@safesight360.com']);
+    $adminId = (int) $pdo->lastInsertId();
+    $adminService = new AdminService($pdo, $auth);
+
+    $authEmail = sprintf('auth-%s@safesight360.com', bin2hex(random_bytes(6)));
+    $request = $auth->requestAccess('QA Auth User', $authEmail, 'QaSecure12345');
+    expect($request['email'] === $authEmail && $request['status'] === 'pending', 'Access request was not recorded.');
+    expect($auth->currentUser() === null, 'An access request incorrectly created an authenticated session.');
+    $personalEmailRejected = false;
+    try {
+        $auth->requestAccess('Personal Email', 'personal@gmail.com', 'QaSecure12345');
+    } catch (InvalidArgumentException) {
+        $personalEmailRejected = true;
     }
+    expect($personalEmailRejected, 'A non-organisational email was allowed to request access.');
+
+    $rejectedRequest = $auth->requestAccess(
+        'Rejected User',
+        'rejected-' . bin2hex(random_bytes(6)) . '@safesight360.com',
+        'QaSecure12345'
+    );
+    $adminService->rejectAccessRequest($adminId, (int) $rejectedRequest['id'], 'Test rejection');
+    $requests = $adminService->accessRequests();
+    expect(count(array_filter($requests, static fn (array $row): bool =>
+        $row['id'] === (int) $rejectedRequest['id'] && $row['status'] === 'rejected'
+    )) === 1, 'Administrator rejection was not saved.');
+    $approved = $adminService->approveAccessRequest($adminId, (int) $request['id']);
+    expect($approved['role'] === 'learner', 'Administrator approval did not create a learner.');
+    $adminService->assignTraining($adminId, (int) $approved['id'], [
+        'warehouse-hazard-hunt', 'manual-handling', 'working-at-height',
+        'five-whys', 'unsafe-acts', 'cyber-awareness',
+    ]);
     $loggedIn = $auth->login($authEmail, 'QaSecure12345');
     expect($loggedIn['email'] === $authEmail, 'Login did not return the authenticated user.');
     $authUserId = (int) $loggedIn['id'];
+
+    $managedEmail = sprintf('managed-%s@safesight360.com', bin2hex(random_bytes(6)));
+    $managed = $adminService->createLearner($adminId, 'Managed Learner', $managedEmail, 'ManagedSecure123');
+    $assignmentResult = $adminService->assignTraining($adminId, (int) $managed['id'], ['manual-handling']);
+    expect($assignmentResult['assigned'] === 1, 'Administrator could not assign existing training.');
+    $adminService->updateLearner($adminId, (int) $managed['id'], 'Managed Learner Updated', $managedEmail, 'active');
+    $managedRows = $adminService->learners('Managed Learner Updated');
+    expect(count($managedRows) === 1 && $managedRows[0]['assignedCount'] === 1, 'Learner management did not persist changes.');
+    $adminService->deactivateLearner($adminId, (int) $managed['id']);
+    $inactiveRejected = false;
+    try {
+        $auth->login($managedEmail, 'ManagedSecure123');
+    } catch (InvalidArgumentException) {
+        $inactiveRejected = true;
+    }
+    expect($inactiveRejected, 'An inactive learner was allowed to sign in.');
 
     foreach (['warehouse-hazard-hunt', 'manual-handling', 'working-at-height', 'five-whys', 'unsafe-acts', 'cyber-awareness'] as $slug) {
         $bundle = $repository->getActiveBundle($slug);
@@ -64,6 +112,34 @@ try {
             expect(($scenario['sceneFocus'] ?? '') !== '', "$slug is missing sceneFocus");
         }
     }
+
+    $editable = $adminService->moduleContent('manual-handling');
+    foreach ($editable['questions'] as &$editableQuestion) {
+        $editableQuestion['correctIndex'] = 0;
+        foreach ($editableQuestion['options'] as $optionIndex => $option) {
+            if ((int) $option['id'] === (int) $editableQuestion['correctOptionId']) {
+                $editableQuestion['correctIndex'] = $optionIndex;
+                break;
+            }
+        }
+    }
+    unset($editableQuestion);
+    $editable['scenario']['title'] .= ' QA';
+    $savedContent = $adminService->saveModuleContent($adminId, 'manual-handling', $editable);
+    expect(str_ends_with($savedContent['scenario']['title'], ' QA'), 'Administrator module title change was not saved.');
+    expect(count($savedContent['hazards']) === 4 && count($savedContent['questions']) === 5, 'Content editor lost hotspot or MCQ data.');
+    $publicContent = $repository->getActiveBundle('manual-handling');
+    expect(!array_key_exists('correctOptionId', $publicContent['questions'][0]), 'A correct answer leaked into the learner payload.');
+    $verifiedAnswer = $repository->validateAnswerForModule(
+        'manual-handling',
+        (int) $savedContent['questions'][0]['id'],
+        (int) $savedContent['questions'][0]['correctOptionId']
+    );
+    expect($verifiedAnswer['correct'] === true, 'Module-scoped edited MCQ answer was not validated.');
+
+    $repository->markTrainingStarted($userId, 'manual-handling');
+    $startedProgress = $repository->getUserModuleProgress($userId);
+    expect(($startedProgress['manual-handling']['status'] ?? '') === 'in_progress', 'Starting training did not update assignment progress.');
 
     $cyber = $service->complete([
         'moduleSlug' => 'cyber-awareness',
@@ -100,6 +176,10 @@ try {
     expect($dashboard['attemptsCount'] === 2, 'Registered attempts were not persisted.');
     expect(in_array('first_responder', $dashboard['badges'], true), 'Server badge persistence failed.');
     expect(in_array('root_cause', $dashboard['badges'], true), 'Special badge persistence failed.');
+    $moduleProgress = $repository->getUserModuleProgress($userId);
+    expect(($moduleProgress['cyber-awareness']['status'] ?? '') === 'completed', 'Completion did not update the cyber assignment.');
+    expect(($moduleProgress['five-whys']['status'] ?? '') === 'completed', 'Completion did not update the 5 Whys assignment.');
+    expect(count($adminService->reports($userId)) === 2, 'Administrator reports did not return verified learner history.');
 
     $challengeCode = $repository->createChallenge($userId, 'warehouse-hazard-hunt');
     $ownChallenge = $repository->getChallenge(' ' . strtolower($challengeCode) . ' ', $userId);
@@ -109,7 +189,7 @@ try {
     $outsiderStatement = $pdo->prepare(
         "INSERT INTO users (display_name, email, password_hash) VALUES ('Outsider', :email, 'not-used')"
     );
-    $outsiderStatement->execute(['email' => 'outsider-' . bin2hex(random_bytes(6)) . '@example.test']);
+    $outsiderStatement->execute(['email' => 'outsider-' . bin2hex(random_bytes(6)) . '@safesight360.com']);
     $outsiderId = (int) $pdo->lastInsertId();
     $denied = false;
     try {

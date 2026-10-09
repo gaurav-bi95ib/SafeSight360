@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { access, readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const content = JSON.parse(await readFile(new URL('../public/assets/data/training-fallback.json', import.meta.url), 'utf8'));
@@ -38,5 +38,37 @@ test('all six fallback bundles declare the correct module type', async () => {
   for (const [file, moduleType] of Object.entries(expected)) {
     const bundle = JSON.parse(await readFile(new URL(`../public/assets/data/${file}`, import.meta.url), 'utf8'));
     assert.equal(bundle.scenario.moduleType, moduleType, file);
+  }
+});
+
+test('every panorama bundle points to a valid 2:1 PNG with matching width metadata', async () => {
+  const files = [
+    'training-fallback.json',
+    'manual-handling-fallback.json',
+    'working-at-height-fallback.json',
+    'unsafe-acts-fallback.json',
+  ];
+
+  for (const file of files) {
+    const bundle = JSON.parse(await readFile(new URL(`../public/assets/data/${file}`, import.meta.url), 'utf8'));
+    const panoramaPath = bundle.scenario.panoramaUrl.replace(/^\/+/, '');
+    const panoramaUrl = new URL(`../public/${panoramaPath}`, import.meta.url);
+    await access(panoramaUrl);
+
+    const png = await readFile(panoramaUrl);
+    assert.equal(png.toString('ascii', 1, 4), 'PNG', `${file} must reference a PNG image`);
+    const width = png.readUInt32BE(16);
+    const height = png.readUInt32BE(20);
+    assert.equal(width, bundle.scenario.panoramaWidth, `${file} width metadata`);
+    assert.equal(width, height * 2, `${file} must reference a 2:1 equirectangular image`);
+
+    assert.ok(bundle.scenario.rollbackPanoramaUrl, `${file} must declare a rollback panorama`);
+    const rollbackPath = bundle.scenario.rollbackPanoramaUrl.replace(/^\/+/, '');
+    const rollbackUrl = new URL(`../public/${rollbackPath}`, import.meta.url);
+    await access(rollbackUrl);
+    const rollbackPng = await readFile(rollbackUrl);
+    const rollbackWidth = rollbackPng.readUInt32BE(16);
+    const rollbackHeight = rollbackPng.readUInt32BE(20);
+    assert.equal(rollbackWidth, rollbackHeight * 2, `${file} rollback must be a 2:1 image`);
   }
 });
