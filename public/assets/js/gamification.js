@@ -123,7 +123,7 @@ export function processAttempt(result, moduleSlug = 'warehouse-hazard-hunt') {
   // Update streak
   updateStreak();
 
-  return { xp, totalXp: newXp, didLevelUp, newLevel, newBadges };
+  return { xp, previousXp: prevXp, totalXp: newXp, previousBest: prevScore, didLevelUp, newLevel, newBadges };
 }
 
 function computeXp(result, moduleSlug) {

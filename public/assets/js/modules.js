@@ -113,15 +113,24 @@ export function getModuleTypeClass(type) {
 }
 
 /** Render the full modules grid into the hub screen */
-export function renderModulesGrid(containerId, userProgress = {}, onSelect) {
+export function renderModulesGrid(containerId, userProgress = {}, onSelect, assignedOnly = false) {
   const container = document.getElementById(containerId);
   if (!container) return;
 
-  container.innerHTML = MODULES.map(mod => {
+  const visibleModules = assignedOnly
+    ? MODULES.filter(mod => Object.hasOwn(userProgress, mod.id))
+    : MODULES;
+  if (visibleModules.length === 0) {
+    container.innerHTML = '<div class="module-empty-state"><strong>No training assigned yet.</strong><p>Your administrator can assign modules from the training management dashboard.</p></div>';
+    return;
+  }
+
+  container.innerHTML = visibleModules.map(mod => {
     const progress = userProgress[mod.id] || {};
-    const rating   = progress.rating?.toLowerCase() || 'not-started';
-    const ratingLabel = rating === 'not-started' ? 'Not started' : rating.charAt(0).toUpperCase() + rating.slice(1);
-    const badgeClass  = rating === 'not-started' ? 'not-started' : rating;
+    const status = progress.status || 'not_started';
+    const rating = progress.rating?.toLowerCase().replace(/\s+/g, '-') || status.replace('_', '-');
+    const ratingLabel = progress.rating || (status === 'in_progress' ? 'In Progress' : status === 'completed' ? 'Completed' : 'Not Started');
+    const badgeClass = rating;
     const typeClass   = getModuleTypeClass(mod.type);
 
     return `
@@ -156,11 +165,19 @@ export function renderModulesGrid(containerId, userProgress = {}, onSelect) {
 }
 
 /** Render compact module progress cards for the dashboard. */
-export function renderModuleProgressGrid(containerId, userProgress = {}, onSelect) {
+export function renderModuleProgressGrid(containerId, userProgress = {}, onSelect, assignedOnly = false) {
   const container = document.getElementById(containerId);
   if (!container) return;
 
-  container.innerHTML = MODULES.map(mod => {
+  const visibleModules = assignedOnly
+    ? MODULES.filter(mod => Object.hasOwn(userProgress, mod.id))
+    : MODULES;
+  if (visibleModules.length === 0) {
+    container.innerHTML = '<div class="module-empty-state"><strong>No training assigned yet.</strong><p>Assigned modules will appear here.</p></div>';
+    return;
+  }
+
+  container.innerHTML = visibleModules.map(mod => {
     const progress = userProgress[mod.id] || {};
     const rating = progress.rating || 'Not started';
     const ratingClass = rating.toLowerCase().replace(' ', '-');
