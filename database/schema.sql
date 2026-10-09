@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS training_versions (
     initial_pitch DECIMAL(9,6) NOT NULL DEFAULT 0.050000,
     initial_fov DECIMAL(9,6) NOT NULL DEFAULT 1.570796,
     module_type ENUM('panorama', 'interactive', 'puzzle') NOT NULL DEFAULT 'panorama',
+    content_json LONGTEXT NULL,
     is_active BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE KEY uq_training_version (slug, version),
@@ -71,14 +72,89 @@ CREATE TABLE IF NOT EXISTS users (
     display_name VARCHAR(80) NOT NULL,
     email VARCHAR(190) NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
+    role ENUM('admin', 'learner') NOT NULL DEFAULT 'learner',
+    account_status ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
     total_xp INT UNSIGNED NOT NULL DEFAULT 0,
     user_level VARCHAR(30) NOT NULL DEFAULT 'Rookie',
     login_streak SMALLINT UNSIGNED NOT NULL DEFAULT 0,
     last_activity_date DATE NULL DEFAULT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     last_login_at TIMESTAMP NULL DEFAULT NULL,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deactivated_at TIMESTAMP NULL DEFAULT NULL,
     UNIQUE KEY uq_user_email (email),
-    KEY idx_user_created (created_at)
+    KEY idx_user_created (created_at),
+    KEY idx_user_role_status (role, account_status)
+) ENGINE=InnoDB;
+
+-- Safe additive migration for existing XAMPP databases.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS role ENUM('admin', 'learner') NOT NULL DEFAULT 'learner' AFTER password_hash;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS account_status ENUM('active', 'inactive') NOT NULL DEFAULT 'active' AFTER role;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER last_login_at;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS deactivated_at TIMESTAMP NULL DEFAULT NULL AFTER updated_at;
+ALTER TABLE users ADD INDEX IF NOT EXISTS idx_user_role_status (role, account_status);
+
+ALTER TABLE training_versions ADD COLUMN IF NOT EXISTS content_json LONGTEXT NULL AFTER module_type;
+
+CREATE TABLE IF NOT EXISTS access_requests (
+    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    display_name VARCHAR(80) NOT NULL,
+    email VARCHAR(190) NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    status ENUM('pending', 'approved', 'rejected') NOT NULL DEFAULT 'pending',
+    review_note VARCHAR(500) NULL,
+    reviewed_by BIGINT UNSIGNED NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    reviewed_at TIMESTAMP NULL DEFAULT NULL,
+    UNIQUE KEY uq_access_request_email (email),
+    KEY idx_access_request_status_created (status, created_at),
+    CONSTRAINT fk_access_request_reviewer FOREIGN KEY (reviewed_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+-- Organisation email-domain migration.
+-- The administrator uses the role mailbox; existing learner/request local parts
+-- are preserved while the retired @safesight360.gmail.com suffix is replaced.
+UPDATE users
+SET email = 'admin@safesight360.com'
+WHERE role = 'admin'
+  AND email IN ('gaurav@safesight360.gmail.com', 'gaurav@safesight360.com');
+
+UPDATE users
+SET email = CONCAT(SUBSTRING_INDEX(email, '@', 1), '@safesight360.com')
+WHERE email LIKE '%@safesight360.gmail.com';
+
+UPDATE access_requests
+SET email = CONCAT(SUBSTRING_INDEX(email, '@', 1), '@safesight360.com')
+WHERE email LIKE '%@safesight360.gmail.com';
+
+CREATE TABLE IF NOT EXISTS training_assignments (
+    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    user_id BIGINT UNSIGNED NOT NULL,
+    training_version_id BIGINT UNSIGNED NOT NULL,
+    assigned_by BIGINT UNSIGNED NULL,
+    status ENUM('not_started', 'in_progress', 'completed') NOT NULL DEFAULT 'not_started',
+    assigned_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    started_at TIMESTAMP NULL DEFAULT NULL,
+    completed_at TIMESTAMP NULL DEFAULT NULL,
+    UNIQUE KEY uq_training_assignment (user_id, training_version_id),
+    KEY idx_assignment_status (status, assigned_at),
+    KEY idx_assignment_user_status (user_id, status),
+    CONSTRAINT fk_assignment_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_assignment_training FOREIGN KEY (training_version_id) REFERENCES training_versions(id) ON DELETE CASCADE,
+    CONSTRAINT fk_assignment_admin FOREIGN KEY (assigned_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS admin_audit_log (
+    id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+    actor_user_id BIGINT UNSIGNED NULL,
+    action_code VARCHAR(60) NOT NULL,
+    target_user_id BIGINT UNSIGNED NULL,
+    details TEXT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_audit_created (created_at),
+    KEY idx_audit_actor (actor_user_id, created_at),
+    CONSTRAINT fk_audit_actor FOREIGN KEY (actor_user_id) REFERENCES users(id) ON DELETE SET NULL,
+    CONSTRAINT fk_audit_target FOREIGN KEY (target_user_id) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS user_badges (
@@ -233,3 +309,29 @@ INSERT INTO quiz_options (id, question_id, label, is_correct, display_order) VAL
     (503, 5, 'Remove the lowest item by hand.', FALSE, 3),
     (504, 5, 'Leave it until the pallet is required.', FALSE, 4)
 ON DUPLICATE KEY UPDATE label=VALUES(label), is_correct=VALUES(is_correct), display_order=VALUES(display_order);
+
+-- Preserve the existing learner experience while moving to explicit assignments.
+-- Existing learners receive every currently active module once; administrators can
+-- add future assignments from the management dashboard.
+INSERT IGNORE INTO training_assignments (user_id, training_version_id, assigned_by, status, assigned_at)
+SELECT u.id, t.id, NULL,
+       CASE WHEN EXISTS (
+           SELECT 1 FROM attempts a
+           WHERE a.user_id = u.id AND a.training_version_id = t.id
+       ) THEN 'completed' ELSE 'not_started' END,
+       CURRENT_TIMESTAMP
+FROM users u
+CROSS JOIN training_versions t
+WHERE u.role = 'learner' AND t.is_active = TRUE;
+
+UPDATE training_assignments ta
+JOIN (
+    SELECT user_id, training_version_id, MIN(completed_at) AS first_completion
+    FROM attempts
+    WHERE user_id IS NOT NULL
+    GROUP BY user_id, training_version_id
+) completed ON completed.user_id = ta.user_id
+           AND completed.training_version_id = ta.training_version_id
+SET ta.status = 'completed',
+    ta.started_at = COALESCE(ta.started_at, completed.first_completion),
+    ta.completed_at = COALESCE(ta.completed_at, completed.first_completion);

@@ -21,6 +21,7 @@ final class AttemptService
         if (!is_string($slug) || preg_match('/^[a-z0-9-]{3,80}$/', $slug) !== 1) {
             throw new InvalidArgumentException('The module identifier is invalid.');
         }
+        $this->repository->assertTrainingAssigned($userId, $slug);
         $facts = $this->repository->getScoringFacts($slug);
         
         $submittedCodes = $this->validatedHazardCodes($payload['hazardCodes'] ?? []);

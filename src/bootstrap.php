@@ -4,17 +4,21 @@ declare(strict_types=1);
 
 use SafeSight360\Database;
 use SafeSight360\AuthService;
+use SafeSight360\AdminService;
 use SafeSight360\TrainingRepository;
 
 require_once __DIR__ . '/Database.php';
 require_once __DIR__ . '/AuthService.php';
 require_once __DIR__ . '/TrainingRepository.php';
 require_once __DIR__ . '/AttemptService.php';
+require_once __DIR__ . '/AdminService.php';
 
 $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
     || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
 
 session_name('safesight360_session');
+ini_set('session.use_strict_mode', '1');
+ini_set('session.use_only_cookies', '1');
 session_set_cookie_params([
     'lifetime' => 0,
     'path' => '/',
@@ -32,14 +36,14 @@ if (!isset($_SESSION['csrf_token'])) {
 function readJsonBody(): array
 {
     $contentLength = (int) ($_SERVER['CONTENT_LENGTH'] ?? 0);
-    if ($contentLength > 50_000) {
+    if ($contentLength > 250_000) {
         throw new InvalidArgumentException('The request body is too large.');
     }
     $raw = file_get_contents('php://input');
     if ($raw === false || $raw === '') {
         return [];
     }
-    if (strlen($raw) > 50_000) {
+    if (strlen($raw) > 250_000) {
         throw new InvalidArgumentException('The request body is too large.');
     }
     $decoded = json_decode($raw, true, 32, JSON_THROW_ON_ERROR);
@@ -97,6 +101,15 @@ function authService(): AuthService
     return $service;
 }
 
+function adminService(): AdminService
+{
+    static $service = null;
+    if (!$service instanceof AdminService) {
+        $service = new AdminService(Database::connect(), authService());
+    }
+    return $service;
+}
+
 function requireUserId(): int
 {
     $user = authService()->currentUser();
@@ -104,6 +117,19 @@ function requireUserId(): int
         jsonResponse(['error' => 'Sign in to continue.'], 401);
     }
     return (int) $user['id'];
+}
+
+/** @return array{id: int, displayName: string, email: string, role: string, status: string} */
+function requireAdmin(): array
+{
+    $user = authService()->currentUser();
+    if ($user === null) {
+        jsonResponse(['error' => 'Sign in to continue.'], 401);
+    }
+    if (($user['role'] ?? '') !== 'admin') {
+        jsonResponse(['error' => 'Administrator access is required.'], 403);
+    }
+    return $user;
 }
 
 function enforceAuthRateLimit(): void
@@ -123,4 +149,23 @@ function recordAuthFailure(): void
 {
     $_SESSION['auth_failures'] = $_SESSION['auth_failures'] ?? [];
     $_SESSION['auth_failures'][] = time();
+}
+
+function enforceAccessRequestRateLimit(): void
+{
+    $now = time();
+    $requests = array_values(array_filter(
+        $_SESSION['access_requests'] ?? [],
+        static fn ($timestamp): bool => is_int($timestamp) && $timestamp > $now - 600
+    ));
+    $_SESSION['access_requests'] = $requests;
+    if (($requests !== [] && end($requests) > $now - 30) || count($requests) >= 3) {
+        jsonResponse(['error' => 'Please wait before submitting another access request.'], 429);
+    }
+}
+
+function recordAccessRequest(): void
+{
+    $_SESSION['access_requests'] = $_SESSION['access_requests'] ?? [];
+    $_SESSION['access_requests'][] = time();
 }
